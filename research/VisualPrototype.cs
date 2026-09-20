@@ -15,7 +15,7 @@ namespace BetterFishingRodsVisualResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.visualprototype";
         public const string PluginName = "Better Fishing Rods Visual Prototype";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.2.1";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -26,6 +26,7 @@ namespace BetterFishingRodsVisualResearch
         private const int RingHeight = 32;
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
+        private const float RingBobberOffsetX = 1.90f;
 
         internal static VisualPrototype Instance;
 
@@ -52,12 +53,12 @@ namespace BetterFishingRodsVisualResearch
             {
                 var logPath = Path.Combine(
                     Paths.BepInExRootPath,
-                    "BetterFishingRodsVisualPrototype-0.2.0.log");
+                    "BetterFishingRodsVisualPrototype-0.2.1.log");
 
                 _writer = new StreamWriter(logPath, false);
                 _writer.AutoFlush = true;
 
-                Write("=== Better Fishing Rods Visual Prototype 0.2.0 ===");
+                Write("=== Better Fishing Rods Visual Prototype 0.2.1 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
@@ -318,7 +319,7 @@ namespace BetterFishingRodsVisualResearch
                 new Vector3(scale, scale, 1f);
 
             var color = _ringRenderer.color;
-            color.a = Mathf.Lerp(0.90f, 0.58f, Mathf.Clamp01(remainingRatio));
+            color.a = Mathf.Lerp(0.78f, 0.50f, Mathf.Clamp01(remainingRatio));
             _ringRenderer.color = color;
         }
 
@@ -363,7 +364,7 @@ namespace BetterFishingRodsVisualResearch
 
                 _ringSprite.name = "BetterFishingRods_CountdownRing";
                 _ringRenderer.sprite = _ringSprite;
-                _ringRenderer.color = new Color(0.72f, 0.93f, 1f, 0.58f);
+                _ringRenderer.color = new Color(0.72f, 0.93f, 1f, 0.50f);
 
                 _ringObject.SetActive(false);
             }
@@ -371,7 +372,11 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject.transform.parent != bobber)
                 _ringObject.transform.SetParent(bobber, false);
 
-            _ringObject.transform.localPosition = Vector3.zero;
+            var fishing = GetCurrentFishingGui();
+            var isToRight = ReadBoolFieldByName(fishing, "is_to_right");
+            var localX = isToRight ? -RingBobberOffsetX : RingBobberOffsetX;
+
+            _ringObject.transform.localPosition = new Vector3(localX, 0f, 0f);
             _ringObject.transform.localRotation = Quaternion.identity;
 
             _ringRenderer.sortingLayerID = bobberRenderer.sortingLayerID;
@@ -505,6 +510,15 @@ namespace BetterFishingRodsVisualResearch
             {
                 return false;
             }
+        }
+
+        private static bool ReadBoolFieldByName(object instance, string fieldName)
+        {
+            if (instance == null)
+                return false;
+
+            var field = instance.GetType().GetField(fieldName, AllInstance);
+            return ReadBool(field, instance);
         }
 
         private void Write(string message)
