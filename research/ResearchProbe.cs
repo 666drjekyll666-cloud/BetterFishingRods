@@ -506,7 +506,7 @@ namespace BetterFishingRodsResearch
                 case OperandType.InlineString:
                 {
                     var token = ReadInt32(il, ref p);
-                    try { return """ + module.ResolveString(token) + """; }
+                    try { return "\\\"" + module.ResolveString(token) + "\\\""; }
                     catch { return "string-token=0x" + token.ToString("X8"); }
                 }
                 case OperandType.InlineField:
