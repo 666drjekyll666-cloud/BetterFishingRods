@@ -1,19 +1,20 @@
 # Bite Countdown — Project Working Contract
 
-This repository follows the canonical global rules in `666drjekyll666-cloud/DevRules`.
+This repository follows the canonical global rules in `NikichMods/DevRules`.
 
 Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_POLICY.md`, `GIT_WORKFLOW.md`, `PROJECT_BOOTSTRAP.md`, and `RUNTIME_TEST_HARNESS.md` when runtime evidence is relevant.
 
 ## Project identity
 
 - Project: **Bite Countdown**
+- Repository: `NikichMods/BiteCountdown`
 - Game: **Graveyard Keeper 1**
 - Target version: **1.407**
 - Mod stack: **BepInEx / Harmony**
 - BepInEx GUID: `nikich.bitecountdown`
 - Stable installed DLL: `BiteCountdown.dll`
 
-The current GitHub repository path is the historical repository container used during development. Product identity is Bite Countdown; do not reintroduce the earlier rod-balance product concept into runtime or release naming.
+Do not reintroduce the earlier rod-balance product concept into runtime or release naming.
 
 ## Product scope
 
