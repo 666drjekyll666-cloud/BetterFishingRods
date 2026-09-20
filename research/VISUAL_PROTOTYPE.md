@@ -1,4 +1,4 @@
-# Better Fishing Rods Visual Prototype 0.2.0
+# Better Fishing Rods Visual Prototype 0.2.1
 
 Research-only visual prototype for Graveyard Keeper 1.407.
 
@@ -51,4 +51,16 @@ Return a screenshot/video if alignment is wrong; otherwise a short textual verdi
 
 Diagnostic log:
 
-`BepInEx/BetterFishingRodsVisualPrototype-0.2.0.log`
+`BepInEx/BetterFishingRodsVisualPrototype-0.2.1.log`
+
+
+## 0.2.1 adjustment
+
+User screenshots across medium, near, and far casting distances showed a consistent horizontal offset between the generated ring and the visible bobber.
+
+0.2.1 keeps the accepted countdown timing/size behavior and changes only:
+
+- a signed local X offset toward the visible bobber, mirrored by fishing direction;
+- slightly lower ring opacity.
+
+No gameplay behavior changed.
