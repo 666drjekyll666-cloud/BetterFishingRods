@@ -2,87 +2,124 @@
 
 Research target: **Graveyard Keeper 1.407**.
 
-Production implementation must wait until the assumptions below are verified at the cheapest reliable evidence level.
+Production implementation waits until the assumptions used by production code are verified at the cheapest reliable evidence level.
 
-## Phase 1 — Static runtime discovery
+## Static research already closed
 
-Inspect current 1.407 assemblies/data for:
+Current installed-runtime evidence now establishes:
 
-1. the three fishing-rod IDs and definitions;
-2. the fishing state machine and catch-selection path;
-3. the final `Item` creation/grant path;
-4. the source of waiting-for-bite time;
-5. the source of the hook reaction window;
-6. the Fast Reflexes effect and its consumer;
-7. bait/lure consumption;
-8. achievement/statistic calls on successful catch;
-9. bobber, water ripple, fishing animation, and bite-cue resources/events;
-10. localization/data paths for rod descriptions.
+- rod IDs are `fishing_rod_0`, `fishing_rod_1`, `fishing_rod_2`;
+- rod efficiency is 0.75 / 0.90 / 1.00;
+- rod energy use data is -1.0 / -0.5 / -0.3;
+- fish definitions own fish/bait-specific `wait_time` values;
+- `FishingGUI` has distinct `WaitingForBite` and `WaitingForPulling` states and a `_waiting_for_pulling_time` field;
+- the game has a native `buff_fish_catch_time_mltplr` parameter path;
+- successful catch handling passes the existing `_fish` object through normal inventory/drop handling;
+- `fishing_success` is emitted once per successful fishing cycle;
+- in-world fishing render objects include `fishing FX`, `bobber`, and `water_fx`.
 
-## Phase 2 — Mechanism selection
+## Remaining static/runtime discovery
 
-For each feature choose the least sufficient host-native mechanism:
+### 1. Catch construction seam
 
-### Catch amount
-Prefer adjusting the final already-selected fish `Item.amount` once, immediately before vanilla reward handling.
+Verify current 1.407 method bodies for:
 
-### Faster bite
-Prefer modifying the native waiting-time input/result after vanilla has selected the fish, without rerolling or bypassing fish selection.
+- final fish selection;
+- `_fish` construction;
+- initial item quantity;
+- the narrowest reliable point at which quantity can be changed once.
 
-### Longer hook window
-Prefer using the same native parameter/effect path consumed by vanilla Fast Reflexes, if verified suitable.
+Acceptance target:
 
-### Bite readability
-First preference: reuse or augment an existing bobber/ripple/animation effect.
+`vanilla selects fish -> amount adjusted once -> vanilla reward path continues`
 
-Leading UX candidate:
+### 2. Bite waiting seam
 
-- no full cast-to-bite timer by default;
-- shortly before the native bite, show a subtle contracting ring/ripple around the bobber;
-- ring reaches center at the native bite moment;
-- keep vanilla sound unchanged.
+Verify:
 
-Investigate whether the cue can be driven by the same native waiting countdown without creating a separate source of truth.
+- exact current method that assigns/consumes native bite delay;
+- any final random variance after `FishDefinition+BaitData.wait_time`;
+- whether the rod should scale the already-resolved wait rather than altering fish data globally.
 
-## Phase 3 — Edge semantics
+Preferred architecture: modify the resolved wait for this cast only, after vanilla fish selection.
 
-Verify before implementation is considered complete:
+### 3. Hook reaction-window seam
 
-- full and nearly full inventory;
-- stacked fish and quality-bearing fish;
-- rare/special fish;
-- bait and durability-based lures;
-- achievements/statistics;
-- save/load and DLL removal;
-- unsupported/unknown rod fallback;
-- interaction with vanilla fishing buffs.
+Verify current method body that sets `_waiting_for_pulling_time`.
 
-## Phase 4 — Runtime harness only if needed
+Determine exactly how:
 
-If static inspection cannot prove several timing/visual questions, create one research-only harness rather than multiple manual tests.
+- `FishPreset.catch_time`;
+- `FISH_CATCH_TIME_MLTPLR`;
+- active player buff values
 
-Potential probe outputs:
+combine.
 
-- selected rod ID;
-- selected fish ID;
-- native wait time;
-- effective modified wait time;
-- native hook window;
-- effective hook window;
-- active Fast Reflexes value;
-- catch amount before/after adjustment;
-- bite-cue trigger timestamp vs native bite timestamp.
+Preferred architecture: supply a rod-tier modifier through the narrowest native input/parameter path while preserving the vanilla Fast Reflexes interaction.
 
-No per-frame verbose logging in production.
+### 4. Bait/lure lifecycle
 
-## External research clues — not verified project facts
+Verify:
 
-These clues narrow the investigation but do not satisfy the evidence gate:
+- consumable bait removal point;
+- durability lure decrement point;
+- one-cast semantics;
+- behavior after failed hook vs successful catch.
 
-- A historical decompilation shows fish selection occurring before the wait, with a fish/bait-specific waiting time and small random variance.
-- The same historical path shows a dedicated waiting-for-pulling window and a player parameter named like a fishing catch-time multiplier.
-- Historical code also shows successful fishing granting one `Item`, then using normal inventory add/drop fallback and firing fishing achievements/events.
-- Current third-party mods built for the modern game still reference `FishingGUI`, `GetRandomFish`, and waiting-for-bite state, suggesting the broad architecture remains recognizable.
-- Player reports repeatedly describe the small bobber/ripple cue as easy to miss and the hook timing as unusually strict; some also report the passive waiting itself as tedious.
+x2/x3 catch amount must not silently multiply bait use unless explicitly chosen later.
 
-All of the above must be checked against the actual 1.407 runtime before production code relies on it.
+### 5. Bite visual lifecycle
+
+Inspect active fishing runtime at the bite transition.
+
+Required evidence:
+
+- what `bobber`, `fishing FX`, and `water_fx` are doing during `WaitingForBite`;
+- what changes exactly at `WaitingForPulling`;
+- whether an existing ripple/sprite/animation can be reused;
+- whether the cue can be started and stopped without broad `Update()` polling.
+
+Leading visual experiment:
+
+- a fixed-duration pre-bite ring starts shortly before the native bite;
+- it contracts to the bobber;
+- it reaches center at the native bite;
+- vanilla sound remains unchanged.
+
+Do not prototype a full-duration cast countdown first: current fish data proves that native wait carries fish/bait-specific information.
+
+## Research-only harness gate
+
+A small installed-runtime harness is justified only for questions that current static evidence cannot close efficiently.
+
+If needed, one harness should cover all remaining live questions in one fishing session:
+
+- dump exact target method IL/signatures;
+- log selected rod/fish/bait;
+- log native resolved wait;
+- log native/effective hook window;
+- log active fishing state transitions;
+- snapshot `bobber` / `fishing FX` / `water_fx` components, sprites, transforms and active state around the bite;
+- optionally test an isolated visual prototype only after the observation-only run identifies the correct presentation owner.
+
+No save writes, no fish-table changes, no permanent diagnostics, and no broad per-frame scene searches.
+
+## Edge semantics before production acceptance
+
+Verify:
+
+- Simple / Good / Excellent rods;
+- common, quality and rare fish;
+- no bait, consumable bait and durability lure;
+- exact x1/x2/x3 quantity;
+- no extra RNG;
+- full/nearly full inventory and world drop;
+- one achievement/quest success event per fishing cycle;
+- vanilla fishing buffs still stack correctly;
+- save/load and DLL removal.
+
+## CI policy for this research
+
+Do not run hosted CI merely for these documentation updates.
+
+If a research harness becomes necessary, create one coherent source state first, then use one deliberate build gate for the actual DLL handoff rather than CI on every research commit.
