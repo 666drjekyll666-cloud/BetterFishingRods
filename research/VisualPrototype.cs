@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -16,7 +15,7 @@ namespace BetterFishingRodsVisualResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.visualprototype";
         public const string PluginName = "Better Fishing Rods Visual Prototype";
-        public const string PluginVersion = "0.2.5";
+        public const string PluginVersion = "0.2.6";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -27,6 +26,8 @@ namespace BetterFishingRodsVisualResearch
         private const int RingHeight = 32;
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
+        private const int AcceptedOffsetXPixels = 2;
+        private const int AcceptedOffsetYPixels = -2;
 
         internal static VisualPrototype Instance;
 
@@ -38,18 +39,12 @@ namespace BetterFishingRodsVisualResearch
         private FieldInfo _stateField;
         private FieldInfo _canTakeOutField;
 
-        private ConfigEntry<int> _positionXPixels;
-        private ConfigEntry<int> _positionYPixels;
-
         private GameObject _ringObject;
         private SpriteRenderer _ringRenderer;
         private Sprite _ringSprite;
         private Texture2D _ringTexture;
         private Coroutine _ringCoroutine;
         private int _ringGeneration;
-        private Transform _ringBobber;
-        private Vector2 _ringBaseAnchor;
-        private float _ringAnchorPpu;
 
         private void Awake()
         {
@@ -59,31 +54,15 @@ namespace BetterFishingRodsVisualResearch
             {
                 var logPath = Path.Combine(
                     Paths.BepInExRootPath,
-                    "BetterFishingRodsVisualPrototype-0.2.5.log");
+                    "BetterFishingRodsVisualPrototype-0.2.6.log");
 
                 _writer = new StreamWriter(logPath, false);
                 _writer.AutoFlush = true;
 
-                Write("=== Better Fishing Rods Visual Prototype 0.2.5 ===");
+                Write("=== Better Fishing Rods Visual Prototype 0.2.6 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
-
-                _positionXPixels = Config.Bind(
-                    "Ring calibration",
-                    "Position X (pixels)",
-                    2,
-                    new ConfigDescription(
-                        "Visual-only convergence-point offset. Positive moves right on screen, negative moves left. Integer game pixels only.",
-                        new AcceptableValueRange<int>(-5, 5)));
-
-                _positionYPixels = Config.Bind(
-                    "Ring calibration",
-                    "Position Y (pixels)",
-                    -2,
-                    new ConfigDescription(
-                        "Visual-only convergence-point offset. Positive moves up on screen, negative moves down. Integer game pixels only.",
-                        new AcceptableValueRange<int>(-5, 5)));
 
                 _fishingGuiType = AccessTools.TypeByName("FishingGUI");
                 if (_fishingGuiType == null)
@@ -247,8 +226,20 @@ namespace BetterFishingRodsVisualResearch
             {
                 var state = self.ReadState(__instance);
 
-                if (!string.Equals(state, "WaitingForBite", StringComparison.Ordinal))
-                    self.StopRing("state=" + state);
+                if (string.Equals(state, "WaitingForBite", StringComparison.Ordinal))
+                {
+                    // Initial cast enters WaitingForBite before the throwing animation
+                    // finishes, so can_take_out is still false and OnStateExit owns the
+                    // first ring start. After a missed hook, vanilla re-enters
+                    // WaitingForBite with can_take_out still true and no new throw;
+                    // re-arm the countdown from this native state transition.
+                    if (ReadBool(self._canTakeOutField, __instance))
+                        self.StartCoroutine(self.StartRingAfterIdleFrame(__instance));
+
+                    return;
+                }
+
+                self.StopRing("state=" + state);
             }
             catch (Exception ex)
             {
@@ -317,12 +308,17 @@ namespace BetterFishingRodsVisualResearch
             if (anchorPpu <= 0f)
                 anchorPpu = 48f;
 
-            _ringBobber = bobber.transform;
-            _ringBaseAnchor = anchor;
-            _ringAnchorPpu = anchorPpu;
+            var lossy = bobber.transform.lossyScale;
+            var xDirection = lossy.x < 0f ? -1f : 1f;
+            var yDirection = lossy.y < 0f ? -1f : 1f;
 
-            EnsureRingObject(bobber.transform, bobberRenderer);
-            ApplyRingPosition();
+            var acceptedOffset = new Vector2(
+                AcceptedOffsetXPixels * xDirection / anchorPpu,
+                AcceptedOffsetYPixels * yDirection / anchorPpu);
+
+            var finalAnchor = anchor + acceptedOffset;
+
+            EnsureRingObject(bobber.transform, bobberRenderer, finalAnchor);
 
             _ringGeneration++;
             var generation = _ringGeneration;
@@ -339,8 +335,10 @@ namespace BetterFishingRodsVisualResearch
                 + " bounds=" + sprite.bounds.size
                 + " baseAnchorLocal=(" + anchor.x.ToString("F4")
                 + "," + anchor.y.ToString("F4") + ")"
-                + " configPx=(" + _positionXPixels.Value
-                + "," + _positionYPixels.Value + ")"
+                + " acceptedOffsetPx=(" + AcceptedOffsetXPixels
+                + "," + AcceptedOffsetYPixels + ")"
+                + " finalAnchorLocal=(" + finalAnchor.x.ToString("F4")
+                + "," + finalAnchor.y.ToString("F4") + ")"
                 + " ringStartScale=" + RingStartScale.ToString("F3"));
 
             _ringCoroutine = StartCoroutine(
@@ -377,8 +375,6 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject == null || _ringRenderer == null)
                 return;
 
-            ApplyRingPosition();
-
             var scale = Mathf.Lerp(
                 RingEndScale,
                 RingStartScale,
@@ -390,29 +386,6 @@ namespace BetterFishingRodsVisualResearch
             var color = _ringRenderer.color;
             color.a = Mathf.Lerp(0.58f, 0.34f, Mathf.Clamp01(remainingRatio));
             _ringRenderer.color = color;
-        }
-
-        private void ApplyRingPosition()
-        {
-            if (_ringObject == null
-                || _ringBobber == null
-                || _ringAnchorPpu <= 0f
-                || _positionXPixels == null
-                || _positionYPixels == null)
-                return;
-
-            var lossy = _ringBobber.lossyScale;
-            var xDirection = lossy.x < 0f ? -1f : 1f;
-            var yDirection = lossy.y < 0f ? -1f : 1f;
-
-            var offset = new Vector2(
-                _positionXPixels.Value * xDirection / _ringAnchorPpu,
-                _positionYPixels.Value * yDirection / _ringAnchorPpu);
-
-            _ringObject.transform.localPosition = new Vector3(
-                _ringBaseAnchor.x + offset.x,
-                _ringBaseAnchor.y + offset.y,
-                0f);
         }
 
         private void StopRing(string reason)
@@ -434,7 +407,8 @@ namespace BetterFishingRodsVisualResearch
 
         private void EnsureRingObject(
             Transform bobber,
-            SpriteRenderer bobberRenderer)
+            SpriteRenderer bobberRenderer,
+            Vector2 finalAnchor)
         {
             if (_ringObject == null)
             {
@@ -464,6 +438,8 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject.transform.parent != bobber)
                 _ringObject.transform.SetParent(bobber, false);
 
+            _ringObject.transform.localPosition =
+                new Vector3(finalAnchor.x, finalAnchor.y, 0f);
             _ringObject.transform.localRotation = Quaternion.identity;
 
             _ringRenderer.sortingLayerID = bobberRenderer.sortingLayerID;

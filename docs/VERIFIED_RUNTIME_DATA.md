@@ -195,3 +195,15 @@ Visual Prototype 0.2.4 confirmed that a fixed art correction can overshoot even 
 - `Position Y (pixels)`: -5..+5, integer, positive = screen-up.
 
 The values are applied live while the countdown ring is active. They are layered only over the verified current-sprite tight-mesh anchor and do not affect fishing gameplay. Initial calibration defaults are X=+2, Y=-2 based on the 0.2.3/0.2.4 visual feedback. Once the user accepts exact values, production should freeze the accepted art offset and remove these temporary calibration settings unless a separate user-facing configuration requirement is established.
+
+### Accepted countdown visual values and missed-hook lifecycle
+
+User runtime acceptance for Visual Prototype 0.2.5:
+
+- accepted visual offset: **X=+2, Y=-2 game pixels** over the verified current-sprite tight-mesh anchor;
+- accepted opacity: the 0.2.4/0.2.5 alpha profile is good enough to freeze; further reduction would be taste-only;
+- temporary F1 calibration is no longer required in production.
+
+The same runtime log exposed one lifecycle gap: after a bite reaches `WaitingForPulling`, a missed hook can cause vanilla to transition back to `WaitingForBite` and resolve a new fish/wait without replaying `FishingThrowingAnim.OnStateExit`. The 0.2.5 ring correctly stopped at the first `WaitingForPulling` but did not restart for that retry wait.
+
+Least-sufficient correction: keep `FishingThrowingAnim.OnStateExit` as the initial-cast start owner, and additionally re-arm the ring when `FishingGUI.ChangeState` finishes in `WaitingForBite` **only if** `can_take_out == true`. On an initial cast this condition is false until the throw animation exits; on a missed-hook retry it remains true, allowing the ring to restart without introducing polling or a second gameplay timer.
