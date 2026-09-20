@@ -57,7 +57,7 @@ This establishes a native separation between cast/landing/settling and the actua
 
 For the accepted full-countdown visual, the preferred start point is the native transition to `can_take_out == true`, not the initial `WaitingForBite` state change.
 
-Historical decompilation identifies `FishingThrowingAnim.OnStateExit` as the owner that sets `can_take_out=true`; Research Probe 0.1.1 will confirm that exact owner on the current runtime before production relies on it.
+Research Probe 0.1.1 confirms this owner directly on the current runtime. During one Excellent Fishing Rod cast, `WaitingForBite` began at t=65.699 with `can_take_out=false` and resolved wait 8.363159 s. `FishingThrowingAnim.OnStateExit` logged `can_take_out=false` before the call at t=69.689 and `can_take_out=true` after it at t=69.729, with the wait still 8.363159 s. The native settling phase was therefore about 4.03 s in that cast, and the actual fish-wait timer remained untouched until the animation exit.
 
 ## Catch construction
 
@@ -135,11 +135,17 @@ Current installed runtime confirms player fishing render objects including:
 
 Probe 0.1.0 could not provide trustworthy mid-countdown visual snapshots because of its by-ref timing bug.
 
-Research Probe 0.1.1 is scoped to:
+Research Probe 0.1.1 closed the lifecycle question with an unmodified wait:
 
-- the native `can_take_out` transition;
-- `FishingThrowingAnim.OnStateExit` correlation;
-- visual snapshots across a real, unmodified wait.
+- `FishingThrowingAnim.OnStateExit` is the current 1.407 transition that flips `can_take_out` from false to true;
+- countdown observation began immediately afterward with 8.354834 s remaining;
+- the game entered `WaitingForPulling` at t=78.013 and the observer ended at -0.000505 s remaining, confirming that this transition is aligned with the native timer reaching zero;
+- `water_fx` remained inactive at countdown start, 75%, 50%, 25%, 10%, 3%, and the bite snapshot;
+- `fishing FX` was active at throwing-animation exit but inactive throughout the actual wait and bite snapshot;
+- `fishadow` remained inactive throughout those sampled waiting states;
+- the active `bobber` renderer changed among `hero_fishing_idle_bobber_frm_*` sprites during the wait.
+
+Therefore the production start/end lifecycle for a full countdown is now verified. The sampled objects do **not** prove where the player-visible vanilla ripple graphic is authored. If such a ripple is visible during this phase, it is not represented by an active `water_fx` or `fishing FX` object at the sampled moments; it may be part of the bobber sprite/animation or another uncaptured renderer.
 
 ## Localization / rod descriptions
 
@@ -153,8 +159,7 @@ Pending:
 
 Highest-value remaining questions:
 
-1. current owner/asset for the visible vanilla ripple or equivalent fishing FX;
-2. exact production visual mechanism for the full countdown;
-3. live amount > 1 inventory/drop behavior;
-4. quality/rare fish quantity preservation;
-5. rod localization path.
+1. exact production visual asset/mechanism for the full countdown ring;
+2. live amount > 1 inventory/drop behavior;
+3. quality/rare fish quantity preservation;
+4. rod localization path.
