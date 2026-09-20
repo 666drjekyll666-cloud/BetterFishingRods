@@ -164,7 +164,11 @@ This closes the main coordinate question: cast distance is already represented b
 
 The least-sufficient visual anchor is therefore the center of the **current waiting sprite's tight mesh**, derived at runtime from `Sprite.vertices` after the throwing animation has yielded to the idle/waiting sprite. For the measured frames this is approximately `(-1.323, -0.1355)` in bobber-local coordinates. This value is evidence, not a production constant: production should calculate it from the current sprite geometry. Parent/player mirroring and any renderer flip must remain host-owned.
 
-Visual acceptance of this data-derived anchor is still required before the countdown visual is considered closed. The 0.2.2 runtime sample covered the right-facing sea spot; an opposite-facing spot remains a useful compatibility edge if encountered.
+Visual Prototype 0.2.3 runtime feedback accepts the **global** data-derived anchor behavior across the tested location/distances: the ring follows the correct cast target. The remaining mismatch is local presentation, not host positioning.
+
+The supplied close-up shows the ring convergence point approximately 4 rendered pixels left of the visible red float center, with no material vertical mismatch. Visual Prototype 0.2.4 therefore keeps the current tight-mesh anchor and adds a measured **-4 sprite-pixel X correction** in bobber-local space, converted through the current sprite PPU. Because the bobber remains under the host's mirrored player hierarchy, this correction mirrors with the host rather than introducing location/distance tables.
+
+The user also requested lower opacity because 0.2.3 is too bright at night. This is a presentation-only acceptance item; 0.2.4 reduces alpha while leaving the countdown timing and geometry unchanged.
 
 ## Localization / rod descriptions
 

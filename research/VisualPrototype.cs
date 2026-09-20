@@ -15,7 +15,7 @@ namespace BetterFishingRodsVisualResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.visualprototype";
         public const string PluginName = "Better Fishing Rods Visual Prototype";
-        public const string PluginVersion = "0.2.3";
+        public const string PluginVersion = "0.2.4";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -26,6 +26,12 @@ namespace BetterFishingRodsVisualResearch
         private const int RingHeight = 32;
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
+
+        // Visual-only art correction measured from the accepted 0.2.3 screenshot.
+        // Keep the host-derived mesh anchor; shift the convergence point by 4
+        // sprite pixels toward the visible float. Parent mirroring remains native.
+        private const float RingVisualCorrectionPixelsX = -4f;
+        private const float RingVisualCorrectionPixelsY = 0f;
 
         internal static VisualPrototype Instance;
 
@@ -52,12 +58,12 @@ namespace BetterFishingRodsVisualResearch
             {
                 var logPath = Path.Combine(
                     Paths.BepInExRootPath,
-                    "BetterFishingRodsVisualPrototype-0.2.3.log");
+                    "BetterFishingRodsVisualPrototype-0.2.4.log");
 
                 _writer = new StreamWriter(logPath, false);
                 _writer.AutoFlush = true;
 
-                Write("=== Better Fishing Rods Visual Prototype 0.2.3 ===");
+                Write("=== Better Fishing Rods Visual Prototype 0.2.4 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
@@ -290,6 +296,14 @@ namespace BetterFishingRodsVisualResearch
                 return;
             }
 
+            var anchorPpu = bobberRenderer.sprite.pixelsPerUnit;
+            if (anchorPpu <= 0f)
+                anchorPpu = 48f;
+
+            anchor += new Vector2(
+                RingVisualCorrectionPixelsX / anchorPpu,
+                RingVisualCorrectionPixelsY / anchorPpu);
+
             EnsureRingObject(bobber.transform, bobberRenderer, anchor);
 
             _ringGeneration++;
@@ -352,7 +366,7 @@ namespace BetterFishingRodsVisualResearch
                 new Vector3(scale, scale, 1f);
 
             var color = _ringRenderer.color;
-            color.a = Mathf.Lerp(0.78f, 0.50f, Mathf.Clamp01(remainingRatio));
+            color.a = Mathf.Lerp(0.58f, 0.34f, Mathf.Clamp01(remainingRatio));
             _ringRenderer.color = color;
         }
 
@@ -398,7 +412,7 @@ namespace BetterFishingRodsVisualResearch
 
                 _ringSprite.name = "BetterFishingRods_CountdownRing";
                 _ringRenderer.sprite = _ringSprite;
-                _ringRenderer.color = new Color(0.72f, 0.93f, 1f, 0.50f);
+                _ringRenderer.color = new Color(0.72f, 0.93f, 1f, 0.34f);
 
                 _ringObject.SetActive(false);
             }
