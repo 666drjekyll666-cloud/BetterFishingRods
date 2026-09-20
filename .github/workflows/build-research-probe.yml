@@ -45,16 +45,16 @@ jobs:
           test -f "$dll"
 
           mkdir -p artifacts
-          handoff='Better Fishing Rods Research Probe 0.1.0.dll'
+          handoff='Better Fishing Rods Research Probe 0.1.1.dll'
           cp "$dll" "artifacts/$handoff"
 
           sha256=$(sha256sum "artifacts/$handoff" | awk '{print $1}')
           {
-            echo 'Artifact: Better Fishing Rods Research Probe 0.1.0'
+            echo 'Artifact: Better Fishing Rods Research Probe 0.1.1'
             echo "Source SHA: $GITHUB_SHA"
             echo "SHA-256: $sha256"
-            echo 'Purpose: observation-only fishing runtime evidence'
-            echo 'Expected runtime log: BepInEx/BetterFishingRodsResearchProbe-0.1.0.log'
+            echo 'Purpose: corrected observation-only settling/countdown/visual evidence'
+            echo 'Expected runtime log: BepInEx/BetterFishingRodsResearchProbe-0.1.1.log'
           } > artifacts/BUILD_INFO.txt
 
           echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
@@ -63,9 +63,9 @@ jobs:
       - name: Upload research probe
         uses: actions/upload-artifact@v4
         with:
-          name: BetterFishingRods-ResearchProbe-0.1.0-${{ github.sha }}
+          name: BetterFishingRods-ResearchProbe-0.1.1-${{ github.sha }}
           path: |
-            artifacts/Better Fishing Rods Research Probe 0.1.0.dll
+            artifacts/Better Fishing Rods Research Probe 0.1.1.dll
             artifacts/BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 7
