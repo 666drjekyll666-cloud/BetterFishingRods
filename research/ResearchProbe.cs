@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using BepInEx;
 using HarmonyLib;
 using UnityEngine;
@@ -16,17 +15,17 @@ namespace BetterFishingRodsResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.researchprobe";
         public const string PluginName = "Better Fishing Rods Research Probe";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private const BindingFlags AllInstance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly Dictionary<short, OpCode> OpCodesByValue = BuildOpCodeMap();
+        private const BindingFlags AllStatic = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
         internal static ResearchProbe Instance;
 
         private Harmony _harmony;
         private StreamWriter _writer;
         private Type _fishingGuiType;
-        private int _castGeneration;
+        private int _waitingGeneration;
 
         private void Awake()
         {
@@ -34,11 +33,10 @@ namespace BetterFishingRodsResearch
 
             try
             {
-                var path = Path.Combine(Paths.BepInExRootPath, "BetterFishingRodsResearchProbe-0.1.0.log");
-                _writer = new StreamWriter(path, false);
-                _writer.AutoFlush = true;
+                var path = Path.Combine(Paths.BepInExRootPath, "BetterFishingRodsResearchProbe-0.1.1.log");
+                _writer = new StreamWriter(path, false) { AutoFlush = true };
 
-                Write("=== Better Fishing Rods Research Probe 0.1.0 ===");
+                Write("=== Better Fishing Rods Research Probe 0.1.1 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
@@ -46,19 +44,18 @@ namespace BetterFishingRodsResearch
                 _fishingGuiType = AccessTools.TypeByName("FishingGUI");
                 if (_fishingGuiType == null)
                 {
-                    Write("FATAL: FishingGUI type not found. No patches applied.");
+                    Write("FATAL: FishingGUI type not found.");
                     return;
                 }
 
                 Write("FishingGUI.Assembly=" + DescribeAssembly(_fishingGuiType.Assembly));
-                DumpRelevantMethodBodies();
 
                 _harmony = new Harmony(PluginGuid);
-                PatchNamedMethods("GetRandomFish", null, nameof(GetRandomFishPostfix));
-                PatchNamedMethods("ChangeState", nameof(ChangeStatePrefix), nameof(ChangeStatePostfix));
+                PatchChangeState();
+                PatchThrowingAnimationExit();
 
                 Write("ProbeReady=True");
-                Write("Instruction=Perform one normal fishing cast and return this log file.");
+                Write("Instruction=Perform one normal complete fishing cast and return this log file.");
             }
             catch (Exception ex)
             {
@@ -89,33 +86,18 @@ namespace BetterFishingRodsResearch
                 Instance = null;
         }
 
-        private void PatchNamedMethods(string methodName, string prefixName, string postfixName)
+        private void PatchChangeState()
         {
-            var methods = _fishingGuiType.GetMethods(AllInstance)
-                .Where(m => string.Equals(m.Name, methodName, StringComparison.Ordinal))
-                .ToArray();
+            var postfix = typeof(ResearchProbe).GetMethod(
+                nameof(ChangeStatePostfix),
+                BindingFlags.Static | BindingFlags.NonPublic);
 
-            if (methods.Length == 0)
-            {
-                Write("PATCH_MISSING " + methodName);
-                return;
-            }
-
-            MethodInfo prefix = null;
-            MethodInfo postfix = null;
-            if (prefixName != null)
-                prefix = typeof(ResearchProbe).GetMethod(prefixName, BindingFlags.Static | BindingFlags.NonPublic);
-            if (postfixName != null)
-                postfix = typeof(ResearchProbe).GetMethod(postfixName, BindingFlags.Static | BindingFlags.NonPublic);
-
-            foreach (var method in methods)
+            foreach (var method in _fishingGuiType.GetMethods(AllInstance)
+                .Where(m => m.Name == "ChangeState"))
             {
                 try
                 {
-                    _harmony.Patch(
-                        method,
-                        prefix == null ? null : new HarmonyMethod(prefix),
-                        postfix == null ? null : new HarmonyMethod(postfix));
+                    _harmony.Patch(method, postfix: new HarmonyMethod(postfix));
                     Write("PATCH_OK " + FormatMethod(method));
                 }
                 catch (Exception ex)
@@ -125,88 +107,94 @@ namespace BetterFishingRodsResearch
             }
         }
 
-        private static void GetRandomFishPostfix(object __instance, object __result, object[] __args)
+        private void PatchThrowingAnimationExit()
         {
-            var self = Instance;
-            if (self == null)
-                return;
-
-            try
+            var type = AccessTools.TypeByName("FishingThrowingAnim");
+            if (type == null)
             {
-                self._castGeneration++;
-                var generation = self._castGeneration;
-                float resolvedWait = -1f;
+                Write("PATCH_MISSING FishingThrowingAnim");
+                return;
+            }
 
-                if (__args != null && __args.Length > 0 && __args[0] != null)
-                    resolvedWait = Convert.ToSingle(__args[0]);
+            Write("FishingThrowingAnim.Assembly=" + DescribeAssembly(type.Assembly));
 
-                self.Write("EVENT GetRandomFish gen=" + generation
-                    + " t=" + Time.realtimeSinceStartup.ToString("F3")
-                    + " resolvedWait=" + resolvedWait.ToString("F3")
-                    + " result=" + self.DescribeObject(__result));
+            var prefix = typeof(ResearchProbe).GetMethod(
+                nameof(ThrowingOnStateExitPrefix),
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var postfix = typeof(ResearchProbe).GetMethod(
+                nameof(ThrowingOnStateExitPostfix),
+                BindingFlags.Static | BindingFlags.NonPublic);
 
-                self.DumpFishingFields(__instance, "AFTER_GET_RANDOM_FISH");
-                self.DumpFishingVisuals("AFTER_GET_RANDOM_FISH");
+            var methods = type.GetMethods(AllInstance)
+                .Where(m => m.Name == "OnStateExit")
+                .ToArray();
 
-                if (resolvedWait > 0f)
+            if (methods.Length == 0)
+            {
+                Write("PATCH_MISSING FishingThrowingAnim.OnStateExit");
+                return;
+            }
+
+            foreach (var method in methods)
+            {
+                try
                 {
-                    self.StartCoroutine(self.SnapshotAfter(
-                        Math.Max(0f, resolvedWait - 1.0f),
-                        generation,
-                        __instance,
-                        "PRE_BITE_MINUS_1_0S"));
-
-                    self.StartCoroutine(self.SnapshotAfter(
-                        Math.Max(0f, resolvedWait - 0.20f),
-                        generation,
-                        __instance,
-                        "PRE_BITE_MINUS_0_20S"));
+                    _harmony.Patch(method, new HarmonyMethod(prefix), new HarmonyMethod(postfix));
+                    Write("PATCH_OK " + FormatMethod(method));
                 }
-            }
-            catch (Exception ex)
-            {
-                self.Write("ERROR GetRandomFishPostfix " + ex);
-            }
-        }
-
-        private static void ChangeStatePrefix(object __instance, object[] __args)
-        {
-            var self = Instance;
-            if (self == null)
-                return;
-
-            try
-            {
-                self.Write("EVENT ChangeState PRE t=" + Time.realtimeSinceStartup.ToString("F3")
-                    + " current=" + self.ReadFieldValue(__instance, "_state")
-                    + " target=" + DescribeArg(__args, 0));
-            }
-            catch (Exception ex)
-            {
-                self.Write("ERROR ChangeStatePrefix " + ex);
+                catch (Exception ex)
+                {
+                    Write("PATCH_FAIL " + FormatMethod(method) + " :: " + ex);
+                }
             }
         }
 
         private static void ChangeStatePostfix(object __instance, object[] __args)
         {
             var self = Instance;
-            if (self == null)
+            if (self == null || __instance == null)
                 return;
 
             try
             {
                 var target = DescribeArg(__args, 0);
+                var state = self.ReadFieldText(__instance, "_state");
+
                 self.Write("EVENT ChangeState POST t=" + Time.realtimeSinceStartup.ToString("F3")
-                    + " state=" + self.ReadFieldValue(__instance, "_state")
-                    + " target=" + target);
+                    + " state=" + state + " target=" + target);
 
                 if (target.IndexOf("WaitingForBite", StringComparison.OrdinalIgnoreCase) >= 0
-                    || target.IndexOf("WaitingForPulling", StringComparison.OrdinalIgnoreCase) >= 0
-                    || target.IndexOf("Pulling", StringComparison.OrdinalIgnoreCase) >= 0
+                    && state.IndexOf("WaitingForBite", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    self._waitingGeneration++;
+                    var generation = self._waitingGeneration;
+
+                    self.Write("WAIT_SELECTED gen=" + generation
+                        + " t=" + Time.realtimeSinceStartup.ToString("F3")
+                        + " wait=" + self.ReadFloatField(__instance, "_waiting_for_bite_delay").ToString("F6")
+                        + " can_take_out=" + self.ReadBoolField(__instance, "can_take_out")
+                        + " rod=" + self.ReadFieldText(__instance, "_equipped_fishing_rod")
+                        + " fish_def=" + self.ReadFieldText(__instance, "_fish_def"));
+
+                    self.StartCoroutine(self.ObserveCountdown(__instance, generation));
+                }
+
+                if (target.IndexOf("WaitingForPulling", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    self.Write("BITE_WINDOW t=" + Time.realtimeSinceStartup.ToString("F3")
+                        + " waiting_for_pulling_time=" + self.ReadFloatField(__instance, "_waiting_for_pulling_time").ToString("F6")
+                        + " fish=" + self.ReadFieldText(__instance, "_fish")
+                        + " preset=" + self.ReadFieldText(__instance, "_fish_preset"));
+                    self.DumpFishingVisuals("BITE_EVENT");
+                }
+
+                if (target.IndexOf("Pulling", StringComparison.OrdinalIgnoreCase) >= 0
                     || target.IndexOf("TakingOut", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    self.DumpFishingFields(__instance, "STATE_" + target);
-                    self.DumpFishingVisuals("STATE_" + target);
+                    self.Write("STATE_DETAIL target=" + target
+                        + " fish=" + self.ReadFieldText(__instance, "_fish")
+                        + " rod=" + self.ReadFieldText(__instance, "_equipped_fishing_rod")
+                        + " success=" + self.ReadBoolField(__instance, "is_success_fishing"));
                 }
             }
             catch (Exception ex)
@@ -215,64 +203,182 @@ namespace BetterFishingRodsResearch
             }
         }
 
-        private IEnumerator SnapshotAfter(float seconds, int generation, object fishingGui, string label)
+        private static void ThrowingOnStateExitPrefix()
         {
-            if (seconds > 0f)
-                yield return new WaitForSeconds(seconds);
+            var self = Instance;
+            if (self == null)
+                return;
 
-            if (generation != _castGeneration)
-                yield break;
-
-            Write("SCHEDULED_SNAPSHOT " + label
-                + " gen=" + generation
-                + " t=" + Time.realtimeSinceStartup.ToString("F3")
-                + " state=" + ReadFieldValue(fishingGui, "_state"));
-            DumpFishingFields(fishingGui, label);
-            DumpFishingVisuals(label);
+            self.LogThrowingExit("PRE");
         }
 
-        private void DumpFishingFields(object instance, string label)
+        private static void ThrowingOnStateExitPostfix()
+        {
+            var self = Instance;
+            if (self == null)
+                return;
+
+            self.LogThrowingExit("POST");
+        }
+
+        private void LogThrowingExit(string phase)
+        {
+            try
+            {
+                var fishing = GetCurrentFishingGui();
+
+                Write("EVENT FishingThrowingAnim.OnStateExit " + phase
+                    + " t=" + Time.realtimeSinceStartup.ToString("F3")
+                    + " fishing=" + (fishing == null ? "<null>" : "found")
+                    + " can_take_out=" + (fishing == null ? "<n/a>" : ReadBoolField(fishing, "can_take_out").ToString())
+                    + " wait=" + (fishing == null ? "<n/a>" : ReadFloatField(fishing, "_waiting_for_bite_delay").ToString("F6")));
+
+                if (phase == "POST" && fishing != null)
+                    DumpFishingVisuals("THROWING_ANIM_EXIT");
+            }
+            catch (Exception ex)
+            {
+                Write("ERROR ThrowingOnStateExit " + phase + " " + ex);
+            }
+        }
+
+        private IEnumerator ObserveCountdown(object fishingGui, int generation)
+        {
+            var guardFrames = 0;
+
+            while (generation == _waitingGeneration
+                && IsState(fishingGui, "WaitingForBite")
+                && !ReadBoolField(fishingGui, "can_take_out"))
+            {
+                if (++guardFrames > 3600)
+                {
+                    Write("COUNTDOWN_ABORT gen=" + generation + " reason=settle-timeout");
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            if (generation != _waitingGeneration || !IsState(fishingGui, "WaitingForBite"))
+            {
+                Write("COUNTDOWN_ABORT gen=" + generation + " reason=state-changed-before-start");
+                yield break;
+            }
+
+            var initial = ReadFloatField(fishingGui, "_waiting_for_bite_delay");
+            if (initial <= 0f || float.IsNaN(initial))
+            {
+                Write("COUNTDOWN_ABORT gen=" + generation + " reason=nonpositive-wait value=" + initial);
+                yield break;
+            }
+
+            Write("COUNTDOWN_START gen=" + generation
+                + " t=" + Time.realtimeSinceStartup.ToString("F3")
+                + " wait=" + initial.ToString("F6")
+                + " fish_def=" + ReadFieldText(fishingGui, "_fish_def"));
+            DumpFishingVisuals("COUNTDOWN_START");
+
+            var thresholds = new[] { 0.75f, 0.50f, 0.25f, 0.10f, 0.03f };
+            var next = 0;
+
+            while (generation == _waitingGeneration && IsState(fishingGui, "WaitingForBite"))
+            {
+                var remaining = ReadFloatField(fishingGui, "_waiting_for_bite_delay");
+                var ratio = remaining / initial;
+
+                while (next < thresholds.Length && ratio <= thresholds[next])
+                {
+                    var label = "COUNTDOWN_" + (thresholds[next] * 100f).ToString("F0") + "_PERCENT_REMAINING";
+                    Write(label
+                        + " gen=" + generation
+                        + " t=" + Time.realtimeSinceStartup.ToString("F3")
+                        + " remaining=" + remaining.ToString("F6")
+                        + " ratio=" + ratio.ToString("F4"));
+                    DumpFishingVisuals(label);
+                    next++;
+                }
+
+                yield return null;
+            }
+
+            Write("COUNTDOWN_END gen=" + generation
+                + " t=" + Time.realtimeSinceStartup.ToString("F3")
+                + " state=" + ReadFieldText(fishingGui, "_state")
+                + " remaining=" + ReadFloatField(fishingGui, "_waiting_for_bite_delay").ToString("F6"));
+        }
+
+        private object GetCurrentFishingGui()
+        {
+            var type = AccessTools.TypeByName("GUIElements");
+            if (type == null)
+                return null;
+
+            object me = null;
+            var meField = type.GetField("me", AllStatic);
+            if (meField != null)
+                me = meField.GetValue(null);
+
+            if (me == null)
+            {
+                var meProperty = type.GetProperty("me", AllStatic);
+                if (meProperty != null)
+                    me = meProperty.GetValue(null, null);
+            }
+
+            if (me == null)
+                return null;
+
+            var fishingField = type.GetField("fishing", AllInstance);
+            if (fishingField != null)
+                return fishingField.GetValue(me);
+
+            var fishingProperty = type.GetProperty("fishing", AllInstance);
+            return fishingProperty == null ? null : fishingProperty.GetValue(me, null);
+        }
+
+        private bool IsState(object instance, string stateName)
+        {
+            return ReadFieldText(instance, "_state")
+                .IndexOf(stateName, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool ReadBoolField(object instance, string name)
         {
             if (instance == null)
-            {
-                Write("FIELDS " + label + " instance=<null>");
-                return;
-            }
+                return false;
 
-            Write("FIELDS_BEGIN " + label);
+            var field = instance.GetType().GetField(name, AllInstance);
+            if (field == null)
+                return false;
 
-            var fields = instance.GetType().GetFields(AllInstance)
-                .Where(f =>
-                {
-                    var n = f.Name.ToLowerInvariant();
-                    return n.Contains("fish")
-                        || n.Contains("bait")
-                        || n.Contains("rod")
-                        || n.Contains("wait")
-                        || n.Contains("pull")
-                        || n.Contains("throw")
-                        || n == "_state";
-                })
-                .OrderBy(f => f.Name)
-                .ToArray();
+            try { return Convert.ToBoolean(field.GetValue(instance)); }
+            catch { return false; }
+        }
 
-            foreach (var field in fields)
-            {
-                object value;
-                try
-                {
-                    value = field.GetValue(instance);
-                }
-                catch (Exception ex)
-                {
-                    Write("  " + field.Name + "=<read-error:" + ex.Message + ">");
-                    continue;
-                }
+        private float ReadFloatField(object instance, string name)
+        {
+            if (instance == null)
+                return float.NaN;
 
-                Write("  " + field.FieldType.FullName + " " + field.Name + "=" + DescribeObject(value));
-            }
+            var field = instance.GetType().GetField(name, AllInstance);
+            if (field == null)
+                return float.NaN;
 
-            Write("FIELDS_END " + label);
+            try { return Convert.ToSingle(field.GetValue(instance)); }
+            catch { return float.NaN; }
+        }
+
+        private string ReadFieldText(object instance, string name)
+        {
+            if (instance == null)
+                return "<null-instance>";
+
+            var field = instance.GetType().GetField(name, AllInstance);
+            if (field == null)
+                return "<missing>";
+
+            try { return DescribeObject(field.GetValue(instance)); }
+            catch (Exception ex) { return "<error:" + ex.Message + ">"; }
         }
 
         private void DumpFishingVisuals(string label)
@@ -310,8 +416,7 @@ namespace BetterFishingRodsResearch
                         + " localPos=" + transform.localPosition
                         + " localScale=" + transform.localScale);
 
-                    var components = go.GetComponents<Component>();
-                    foreach (var component in components)
+                    foreach (var component in go.GetComponents<Component>())
                     {
                         if (component == null)
                             continue;
@@ -333,23 +438,6 @@ namespace BetterFishingRodsResearch
                             Write("    Animator enabled=" + animator.enabled
                                 + " layers=" + animator.layerCount
                                 + " speed=" + animator.speed);
-
-                            for (var layer = 0; layer < animator.layerCount; layer++)
-                            {
-                                try
-                                {
-                                    var state = animator.GetCurrentAnimatorStateInfo(layer);
-                                    var clips = animator.GetCurrentAnimatorClipInfo(layer);
-                                    Write("      layer=" + layer
-                                        + " stateHash=" + state.fullPathHash
-                                        + " normalizedTime=" + state.normalizedTime.ToString("F3")
-                                        + " clips=" + string.Join(",", clips.Select(c => c.clip == null ? "<null>" : c.clip.name).ToArray()));
-                                }
-                                catch (Exception ex)
-                                {
-                                    Write("      animator-layer-error=" + ex.Message);
-                                }
-                            }
                             continue;
                         }
 
@@ -362,176 +450,6 @@ namespace BetterFishingRodsResearch
             catch (Exception ex)
             {
                 Write("VISUALS_ERROR " + label + " " + ex);
-            }
-        }
-
-        private void DumpRelevantMethodBodies()
-        {
-            Write("IL_DUMP_BEGIN");
-
-            var methods = _fishingGuiType.GetMethods(AllInstance)
-                .Where(m =>
-                {
-                    var n = m.Name;
-                    return n.IndexOf("Bait", StringComparison.OrdinalIgnoreCase) >= 0
-                        || n.IndexOf("Waiting", StringComparison.OrdinalIgnoreCase) >= 0
-                        || n.IndexOf("Fish", StringComparison.OrdinalIgnoreCase) >= 0
-                        || n == "ChangeState"
-                        || n == "UpdateTakingOut";
-                })
-                .OrderBy(m => m.Name)
-                .ThenBy(m => m.GetParameters().Length)
-                .ToArray();
-
-            foreach (var method in methods)
-                DumpMethodBody(method);
-
-            Write("IL_DUMP_END");
-        }
-
-        private void DumpMethodBody(MethodInfo method)
-        {
-            Write("METHOD " + FormatMethod(method));
-
-            MethodBody body;
-            try
-            {
-                body = method.GetMethodBody();
-            }
-            catch (Exception ex)
-            {
-                Write("  BODY_ERROR " + ex.Message);
-                return;
-            }
-
-            if (body == null)
-            {
-                Write("  <no-body>");
-                return;
-            }
-
-            var il = body.GetILAsByteArray();
-            if (il == null)
-            {
-                Write("  <no-il>");
-                return;
-            }
-
-            var module = method.Module;
-            var p = 0;
-
-            while (p < il.Length)
-            {
-                var offset = p;
-                OpCode op;
-
-                var first = il[p++];
-                if (first == 0xFE)
-                {
-                    if (p >= il.Length)
-                        break;
-                    var key = unchecked((short)(0xFE00 | il[p++]));
-                    if (!OpCodesByValue.TryGetValue(key, out op))
-                    {
-                        Write("  IL_" + offset.ToString("X4") + " <unknown-opcode>");
-                        break;
-                    }
-                }
-                else
-                {
-                    if (!OpCodesByValue.TryGetValue(first, out op))
-                    {
-                        Write("  IL_" + offset.ToString("X4") + " <unknown-opcode>");
-                        break;
-                    }
-                }
-
-                string operand;
-                try
-                {
-                    operand = ReadOperand(il, ref p, op.OperandType, module);
-                }
-                catch (Exception ex)
-                {
-                    operand = "<operand-error:" + ex.Message + ">";
-                    p = il.Length;
-                }
-
-                Write("  IL_" + offset.ToString("X4") + " " + op.Name + (string.IsNullOrEmpty(operand) ? "" : " " + operand));
-            }
-        }
-
-        private static string ReadOperand(byte[] il, ref int p, OperandType type, Module module)
-        {
-            switch (type)
-            {
-                case OperandType.InlineNone:
-                    return "";
-                case OperandType.ShortInlineI:
-                    return ((sbyte)il[p++]).ToString();
-                case OperandType.InlineI:
-                    return ReadInt32(il, ref p).ToString();
-                case OperandType.InlineI8:
-                    return ReadInt64(il, ref p).ToString();
-                case OperandType.ShortInlineR:
-                    return ReadSingle(il, ref p).ToString("R");
-                case OperandType.InlineR:
-                    return ReadDouble(il, ref p).ToString("R");
-                case OperandType.ShortInlineVar:
-                    return il[p++].ToString();
-                case OperandType.InlineVar:
-                    return ReadUInt16(il, ref p).ToString();
-                case OperandType.ShortInlineBrTarget:
-                {
-                    var delta = (sbyte)il[p++];
-                    return "IL_" + (p + delta).ToString("X4");
-                }
-                case OperandType.InlineBrTarget:
-                {
-                    var delta = ReadInt32(il, ref p);
-                    return "IL_" + (p + delta).ToString("X4");
-                }
-                case OperandType.InlineSwitch:
-                {
-                    var count = ReadInt32(il, ref p);
-                    var basePos = p + count * 4;
-                    var targets = new string[count];
-                    for (var i = 0; i < count; i++)
-                    {
-                        var delta = ReadInt32(il, ref p);
-                        targets[i] = "IL_" + (basePos + delta).ToString("X4");
-                    }
-                    return string.Join(",", targets);
-                }
-                case OperandType.InlineString:
-                {
-                    var token = ReadInt32(il, ref p);
-                    try { return "\\\"" + module.ResolveString(token) + "\\\""; }
-                    catch { return "string-token=0x" + token.ToString("X8"); }
-                }
-                case OperandType.InlineField:
-                case OperandType.InlineMethod:
-                case OperandType.InlineType:
-                case OperandType.InlineTok:
-                {
-                    var token = ReadInt32(il, ref p);
-                    try
-                    {
-                        var member = module.ResolveMember(token);
-                        return member == null ? "token=0x" + token.ToString("X8") : member.ToString();
-                    }
-                    catch
-                    {
-                        return "token=0x" + token.ToString("X8");
-                    }
-                }
-                case OperandType.InlineSig:
-                {
-                    var token = ReadInt32(il, ref p);
-                    return "sig-token=0x" + token.ToString("X8");
-                }
-                default:
-                    return "<unsupported:" + type + ">";
             }
         }
 
@@ -557,7 +475,9 @@ namespace BetterFishingRodsResearch
                 {
                     try
                     {
-                        details.Add(name + "=" + Convert.ToString(field.GetValue(value), System.Globalization.CultureInfo.InvariantCulture));
+                        details.Add(name + "=" + Convert.ToString(
+                            field.GetValue(value),
+                            System.Globalization.CultureInfo.InvariantCulture));
                     }
                     catch { }
                 }
@@ -567,32 +487,15 @@ namespace BetterFishingRodsResearch
                 {
                     try
                     {
-                        details.Add(name + "=" + Convert.ToString(property.GetValue(value, null), System.Globalization.CultureInfo.InvariantCulture));
+                        details.Add(name + "=" + Convert.ToString(
+                            property.GetValue(value, null),
+                            System.Globalization.CultureInfo.InvariantCulture));
                     }
                     catch { }
                 }
             }
 
             return type.FullName + (details.Count == 0 ? "" : "{" + string.Join(";", details.ToArray()) + "}");
-        }
-
-        private object ReadFieldValue(object instance, string fieldName)
-        {
-            if (instance == null)
-                return "<null-instance>";
-
-            var field = instance.GetType().GetField(fieldName, AllInstance);
-            if (field == null)
-                return "<missing>";
-
-            try
-            {
-                return DescribeObject(field.GetValue(instance));
-            }
-            catch (Exception ex)
-            {
-                return "<error:" + ex.Message + ">";
-            }
         }
 
         private void Write(string message)
@@ -611,6 +514,7 @@ namespace BetterFishingRodsResearch
         {
             if (args == null || index < 0 || index >= args.Length || args[index] == null)
                 return "<null>";
+
             return args[index].ToString();
         }
 
@@ -618,6 +522,7 @@ namespace BetterFishingRodsResearch
         {
             if (assembly == null)
                 return "<null>";
+
             var name = assembly.GetName();
             return name.Name + " " + name.Version + " MVID=" + assembly.ManifestModule.ModuleVersionId;
         }
@@ -625,7 +530,8 @@ namespace BetterFishingRodsResearch
         private static string FormatMethod(MethodBase method)
         {
             return method.DeclaringType.FullName + "." + method.Name + "("
-                + string.Join(",", method.GetParameters().Select(p => p.ParameterType.FullName + " " + p.Name).ToArray())
+                + string.Join(",", method.GetParameters().Select(
+                    p => p.ParameterType.FullName + " " + p.Name).ToArray())
                 + ") -> " + (method is MethodInfo ? ((MethodInfo)method).ReturnType.FullName : "System.Void");
         }
 
@@ -633,61 +539,15 @@ namespace BetterFishingRodsResearch
         {
             var names = new List<string>();
             var current = transform;
+
             while (current != null)
             {
                 names.Add(current.name);
                 current = current.parent;
             }
+
             names.Reverse();
             return string.Join("/", names.ToArray());
-        }
-
-        private static Dictionary<short, OpCode> BuildOpCodeMap()
-        {
-            var result = new Dictionary<short, OpCode>();
-            foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
-            {
-                if (field.FieldType != typeof(OpCode))
-                    continue;
-                var op = (OpCode)field.GetValue(null);
-                result[op.Value] = op;
-            }
-            return result;
-        }
-
-        private static int ReadInt32(byte[] data, ref int p)
-        {
-            var value = BitConverter.ToInt32(data, p);
-            p += 4;
-            return value;
-        }
-
-        private static long ReadInt64(byte[] data, ref int p)
-        {
-            var value = BitConverter.ToInt64(data, p);
-            p += 8;
-            return value;
-        }
-
-        private static ushort ReadUInt16(byte[] data, ref int p)
-        {
-            var value = BitConverter.ToUInt16(data, p);
-            p += 2;
-            return value;
-        }
-
-        private static float ReadSingle(byte[] data, ref int p)
-        {
-            var value = BitConverter.ToSingle(data, p);
-            p += 4;
-            return value;
-        }
-
-        private static double ReadDouble(byte[] data, ref int p)
-        {
-            var value = BitConverter.ToDouble(data, p);
-            p += 8;
-            return value;
         }
     }
 }
