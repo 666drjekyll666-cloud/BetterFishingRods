@@ -63,9 +63,9 @@ Third-party mods, old decompilations, wikis, and player reports are research hin
 
 The preferred UX direction is an immersive visual cue around the bobber, visually consistent with vanilla water effects.
 
-Current leading candidate: a subtle ring/ripple that appears shortly before the bite and contracts toward the bobber, reaching the center at the bite moment.
+Accepted direction: a subtle ring/ripple represents the full effective fish-wait interval. It starts only after the cast has settled and vanilla begins consuming the actual bite timer, then contracts continuously and reaches the bobber at the native bite moment.
 
-Before implementation, verify whether an existing vanilla effect can be reused or adjusted. Avoid exposing more hidden fish-selection information than necessary; an exact full-duration countdown from cast is not the default design.
+Fish-dependent timing is intentionally learnable player information: experienced players may recognize timing patterns as a small skill/knowledge reward. Do not normalize fish waits merely to hide this. Before implementation, verify whether an existing vanilla effect can be reused or adjusted.
 
 ## Balance rules
 
