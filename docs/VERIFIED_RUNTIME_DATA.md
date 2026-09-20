@@ -148,13 +148,23 @@ Research Probe 0.1.1 closed the lifecycle question with an unmodified wait:
 Therefore the production start/end lifecycle for a full countdown is now verified. The sampled objects do **not** prove where the player-visible vanilla ripple graphic is authored. If such a ripple is visible during this phase, it is not represented by an active `water_fx` or `fishing FX` object at the sampled moments; it may be part of the bobber sprite/animation or another uncaptured renderer.
 
 
-### Anchor finding correction after Visual Prototype 0.2.1
+### Bobber anchor geometry
 
-Visual Prototype 0.2.1 must not be treated as verified anchor evidence. It introduced a constant `1.90f` local X offset selected from screenshots rather than from host data; runtime feedback rejected that position.
+Visual Prototype 0.2.1 is rejected anchor evidence: it used a hand-selected constant `1.90f` local X offset rather than host data.
 
-Current runtime evidence shows that cast distance changes the active bobber sprite set. In the sea spot test, distance 1 used `hero_fishing_left_2_bobber_frm_43`, while distance 2 used `hero_fishing_left_bobber_frm_43`; both sprites report a 240x144 rect at 48 pixels-per-unit. Earlier runtime evidence also showed distance/phase-dependent bobber transform positions.
+Anchor Probe 0.2.2 then measured the actual waiting-state bobber geometry in the user's current 1.407 runtime at `sea_fishing_spot` for all three cast distances:
 
-Therefore the exact float/water-contact anchor remains an evidence gap. The next acceptable step is runtime inspection of the actual sprite pivot/mesh/alpha geometry for all three distances. No further guessed constant offset is allowed.
+- distance 1: bobber local position X = `-0.875`;
+- distance 2: bobber local position X = `-1.583`;
+- distance 3: bobber local position X = `-2.938`;
+- all sampled `hero_fishing_idle_bobber_frm_01..10` frames had the same sprite rect `240x144`, pivot `(120,72)`, PPU `48`, and tight mesh extent X = `-1.500..-1.146`, Y = `-0.271..0`;
+- the sampled alpha crop was likewise identical across the three distances.
+
+This closes the main coordinate question: cast distance is already represented by the native bobber transform, while the visible float graphic is offset inside that transform by the native sprite mesh. No location/distance coordinate table is needed.
+
+The least-sufficient visual anchor is therefore the center of the **current waiting sprite's tight mesh**, derived at runtime from `Sprite.vertices` after the throwing animation has yielded to the idle/waiting sprite. For the measured frames this is approximately `(-1.323, -0.1355)` in bobber-local coordinates. This value is evidence, not a production constant: production should calculate it from the current sprite geometry. Parent/player mirroring and any renderer flip must remain host-owned.
+
+Visual acceptance of this data-derived anchor is still required before the countdown visual is considered closed. The 0.2.2 runtime sample covered the right-facing sea spot; an opposite-facing spot remains a useful compatibility edge if encountered.
 
 ## Localization / rod descriptions
 
@@ -168,7 +178,7 @@ Pending:
 
 Highest-value remaining questions:
 
-1. exact production visual asset/mechanism for the full countdown ring;
+1. visual acceptance of the data-derived tight-mesh bobber anchor (including an opposite-facing edge if available);
 2. live amount > 1 inventory/drop behavior;
 3. quality/rare fish quantity preservation;
 4. rod localization path.

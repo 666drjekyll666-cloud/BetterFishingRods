@@ -15,7 +15,7 @@ namespace BetterFishingRodsVisualResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.visualprototype";
         public const string PluginName = "Better Fishing Rods Visual Prototype";
-        public const string PluginVersion = "0.2.1";
+        public const string PluginVersion = "0.2.3";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -26,7 +26,6 @@ namespace BetterFishingRodsVisualResearch
         private const int RingHeight = 32;
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
-        private const float RingBobberOffsetX = 1.90f;
 
         internal static VisualPrototype Instance;
 
@@ -53,12 +52,12 @@ namespace BetterFishingRodsVisualResearch
             {
                 var logPath = Path.Combine(
                     Paths.BepInExRootPath,
-                    "BetterFishingRodsVisualPrototype-0.2.1.log");
+                    "BetterFishingRodsVisualPrototype-0.2.3.log");
 
                 _writer = new StreamWriter(logPath, false);
                 _writer.AutoFlush = true;
 
-                Write("=== Better Fishing Rods Visual Prototype 0.2.1 ===");
+                Write("=== Better Fishing Rods Visual Prototype 0.2.3 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
@@ -207,7 +206,7 @@ namespace BetterFishingRodsVisualResearch
                     return;
                 }
 
-                self.StartRing(fishing);
+                self.StartCoroutine(self.StartRingAfterIdleFrame(fishing));
             }
             catch (Exception ex)
             {
@@ -232,6 +231,30 @@ namespace BetterFishingRodsVisualResearch
             {
                 self.Write("ERROR ChangeStatePostfix " + ex);
             }
+        }
+
+        private IEnumerator StartRingAfterIdleFrame(object fishingGui)
+        {
+            // OnStateExit flips can_take_out at the end of the throwing animation.
+            // Wait one rendered frame so the bobber renderer has switched from the
+            // throwing sprite to the native idle/waiting sprite whose tight mesh
+            // represents the visible float geometry.
+            yield return null;
+
+            if (!IsState(fishingGui, "WaitingForBite"))
+            {
+                Write("RING_SKIP reason=state-changed-before-idle-frame state="
+                    + ReadState(fishingGui));
+                yield break;
+            }
+
+            if (!ReadBool(_canTakeOutField, fishingGui))
+            {
+                Write("RING_SKIP reason=can-take-out-reset-before-idle-frame");
+                yield break;
+            }
+
+            StartRing(fishingGui);
         }
 
         private void StartRing(object fishingGui)
@@ -259,7 +282,15 @@ namespace BetterFishingRodsVisualResearch
                 return;
             }
 
-            EnsureRingObject(bobber.transform, bobberRenderer);
+            Vector2 anchor;
+            if (!TryGetSpriteMeshCenter(bobberRenderer, out anchor))
+            {
+                Write("RING_SKIP reason=bobber-mesh-anchor-unavailable sprite="
+                    + bobberRenderer.sprite.name);
+                return;
+            }
+
+            EnsureRingObject(bobber.transform, bobberRenderer, anchor);
 
             _ringGeneration++;
             var generation = _ringGeneration;
@@ -274,6 +305,8 @@ namespace BetterFishingRodsVisualResearch
                 + " ppu=" + sprite.pixelsPerUnit.ToString("F3")
                 + " rect=" + sprite.rect
                 + " bounds=" + sprite.bounds.size
+                + " anchorLocal=(" + anchor.x.ToString("F4")
+                + "," + anchor.y.ToString("F4") + ")"
                 + " ringStartScale=" + RingStartScale.ToString("F3"));
 
             _ringCoroutine = StartCoroutine(
@@ -342,7 +375,8 @@ namespace BetterFishingRodsVisualResearch
 
         private void EnsureRingObject(
             Transform bobber,
-            SpriteRenderer bobberRenderer)
+            SpriteRenderer bobberRenderer,
+            Vector2 anchor)
         {
             if (_ringObject == null)
             {
@@ -372,15 +406,44 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject.transform.parent != bobber)
                 _ringObject.transform.SetParent(bobber, false);
 
-            var fishing = GetCurrentFishingGui();
-            var isToRight = ReadBoolFieldByName(fishing, "is_to_right");
-            var localX = isToRight ? -RingBobberOffsetX : RingBobberOffsetX;
-
-            _ringObject.transform.localPosition = new Vector3(localX, 0f, 0f);
+            _ringObject.transform.localPosition =
+                new Vector3(anchor.x, anchor.y, 0f);
             _ringObject.transform.localRotation = Quaternion.identity;
 
             _ringRenderer.sortingLayerID = bobberRenderer.sortingLayerID;
             _ringRenderer.sortingOrder = bobberRenderer.sortingOrder - 1;
+        }
+
+        private static bool TryGetSpriteMeshCenter(
+            SpriteRenderer renderer,
+            out Vector2 center)
+        {
+            center = Vector2.zero;
+
+            if (renderer == null || renderer.sprite == null)
+                return false;
+
+            var vertices = renderer.sprite.vertices;
+            if (vertices == null || vertices.Length == 0)
+                return false;
+
+            var min = vertices[0];
+            var max = vertices[0];
+
+            for (var i = 1; i < vertices.Length; i++)
+            {
+                min = Vector2.Min(min, vertices[i]);
+                max = Vector2.Max(max, vertices[i]);
+            }
+
+            center = (min + max) * 0.5f;
+
+            if (renderer.flipX)
+                center.x = -center.x;
+            if (renderer.flipY)
+                center.y = -center.y;
+
+            return true;
         }
 
         private static Texture2D CreateRingTexture()
@@ -510,15 +573,6 @@ namespace BetterFishingRodsVisualResearch
             {
                 return false;
             }
-        }
-
-        private static bool ReadBoolFieldByName(object instance, string fieldName)
-        {
-            if (instance == null)
-                return false;
-
-            var field = instance.GetType().GetField(fieldName, AllInstance);
-            return ReadBool(field, instance);
         }
 
         private void Write(string message)
