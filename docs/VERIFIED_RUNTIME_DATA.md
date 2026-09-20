@@ -186,3 +186,12 @@ Highest-value remaining questions:
 2. live amount > 1 inventory/drop behavior;
 3. quality/rare fish quantity preservation;
 4. rod localization path.
+
+### Temporary visual calibration gate
+
+Visual Prototype 0.2.4 confirmed that a fixed art correction can overshoot even when the global host-derived anchor is correct. For the next research-only calibration build, the hard-coded art correction is removed and replaced by two temporary BepInEx integer settings visible in Configuration Manager:
+
+- `Position X (pixels)`: -5..+5, integer, positive = screen-right;
+- `Position Y (pixels)`: -5..+5, integer, positive = screen-up.
+
+The values are applied live while the countdown ring is active. They are layered only over the verified current-sprite tight-mesh anchor and do not affect fishing gameplay. Initial calibration defaults are X=+2, Y=-2 based on the 0.2.3/0.2.4 visual feedback. Once the user accepts exact values, production should freeze the accepted art offset and remove these temporary calibration settings unless a separate user-facing configuration requirement is established.

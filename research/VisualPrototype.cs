@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
+using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -15,7 +16,7 @@ namespace BetterFishingRodsVisualResearch
     {
         public const string PluginGuid = "nikich.betterfishingrods.visualprototype";
         public const string PluginName = "Better Fishing Rods Visual Prototype";
-        public const string PluginVersion = "0.2.4";
+        public const string PluginVersion = "0.2.5";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -27,12 +28,6 @@ namespace BetterFishingRodsVisualResearch
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
 
-        // Visual-only art correction measured from the accepted 0.2.3 screenshot.
-        // Keep the host-derived mesh anchor; shift the convergence point by 4
-        // sprite pixels toward the visible float. Parent mirroring remains native.
-        private const float RingVisualCorrectionPixelsX = -4f;
-        private const float RingVisualCorrectionPixelsY = 0f;
-
         internal static VisualPrototype Instance;
 
         private Harmony _harmony;
@@ -43,12 +38,18 @@ namespace BetterFishingRodsVisualResearch
         private FieldInfo _stateField;
         private FieldInfo _canTakeOutField;
 
+        private ConfigEntry<int> _positionXPixels;
+        private ConfigEntry<int> _positionYPixels;
+
         private GameObject _ringObject;
         private SpriteRenderer _ringRenderer;
         private Sprite _ringSprite;
         private Texture2D _ringTexture;
         private Coroutine _ringCoroutine;
         private int _ringGeneration;
+        private Transform _ringBobber;
+        private Vector2 _ringBaseAnchor;
+        private float _ringAnchorPpu;
 
         private void Awake()
         {
@@ -58,15 +59,31 @@ namespace BetterFishingRodsVisualResearch
             {
                 var logPath = Path.Combine(
                     Paths.BepInExRootPath,
-                    "BetterFishingRodsVisualPrototype-0.2.4.log");
+                    "BetterFishingRodsVisualPrototype-0.2.5.log");
 
                 _writer = new StreamWriter(logPath, false);
                 _writer.AutoFlush = true;
 
-                Write("=== Better Fishing Rods Visual Prototype 0.2.4 ===");
+                Write("=== Better Fishing Rods Visual Prototype 0.2.5 ===");
                 Write("GeneratedUtc=" + DateTime.UtcNow.ToString("O"));
                 Write("ApplicationVersion=" + Application.version);
                 Write("UnityVersion=" + Application.unityVersion);
+
+                _positionXPixels = Config.Bind(
+                    "Ring calibration",
+                    "Position X (pixels)",
+                    2,
+                    new ConfigDescription(
+                        "Visual-only convergence-point offset. Positive moves right on screen, negative moves left. Integer game pixels only.",
+                        new AcceptableValueRange<int>(-5, 5)));
+
+                _positionYPixels = Config.Bind(
+                    "Ring calibration",
+                    "Position Y (pixels)",
+                    -2,
+                    new ConfigDescription(
+                        "Visual-only convergence-point offset. Positive moves up on screen, negative moves down. Integer game pixels only.",
+                        new AcceptableValueRange<int>(-5, 5)));
 
                 _fishingGuiType = AccessTools.TypeByName("FishingGUI");
                 if (_fishingGuiType == null)
@@ -300,11 +317,12 @@ namespace BetterFishingRodsVisualResearch
             if (anchorPpu <= 0f)
                 anchorPpu = 48f;
 
-            anchor += new Vector2(
-                RingVisualCorrectionPixelsX / anchorPpu,
-                RingVisualCorrectionPixelsY / anchorPpu);
+            _ringBobber = bobber.transform;
+            _ringBaseAnchor = anchor;
+            _ringAnchorPpu = anchorPpu;
 
-            EnsureRingObject(bobber.transform, bobberRenderer, anchor);
+            EnsureRingObject(bobber.transform, bobberRenderer);
+            ApplyRingPosition();
 
             _ringGeneration++;
             var generation = _ringGeneration;
@@ -319,8 +337,10 @@ namespace BetterFishingRodsVisualResearch
                 + " ppu=" + sprite.pixelsPerUnit.ToString("F3")
                 + " rect=" + sprite.rect
                 + " bounds=" + sprite.bounds.size
-                + " anchorLocal=(" + anchor.x.ToString("F4")
+                + " baseAnchorLocal=(" + anchor.x.ToString("F4")
                 + "," + anchor.y.ToString("F4") + ")"
+                + " configPx=(" + _positionXPixels.Value
+                + "," + _positionYPixels.Value + ")"
                 + " ringStartScale=" + RingStartScale.ToString("F3"));
 
             _ringCoroutine = StartCoroutine(
@@ -357,6 +377,8 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject == null || _ringRenderer == null)
                 return;
 
+            ApplyRingPosition();
+
             var scale = Mathf.Lerp(
                 RingEndScale,
                 RingStartScale,
@@ -368,6 +390,29 @@ namespace BetterFishingRodsVisualResearch
             var color = _ringRenderer.color;
             color.a = Mathf.Lerp(0.58f, 0.34f, Mathf.Clamp01(remainingRatio));
             _ringRenderer.color = color;
+        }
+
+        private void ApplyRingPosition()
+        {
+            if (_ringObject == null
+                || _ringBobber == null
+                || _ringAnchorPpu <= 0f
+                || _positionXPixels == null
+                || _positionYPixels == null)
+                return;
+
+            var lossy = _ringBobber.lossyScale;
+            var xDirection = lossy.x < 0f ? -1f : 1f;
+            var yDirection = lossy.y < 0f ? -1f : 1f;
+
+            var offset = new Vector2(
+                _positionXPixels.Value * xDirection / _ringAnchorPpu,
+                _positionYPixels.Value * yDirection / _ringAnchorPpu);
+
+            _ringObject.transform.localPosition = new Vector3(
+                _ringBaseAnchor.x + offset.x,
+                _ringBaseAnchor.y + offset.y,
+                0f);
         }
 
         private void StopRing(string reason)
@@ -389,8 +434,7 @@ namespace BetterFishingRodsVisualResearch
 
         private void EnsureRingObject(
             Transform bobber,
-            SpriteRenderer bobberRenderer,
-            Vector2 anchor)
+            SpriteRenderer bobberRenderer)
         {
             if (_ringObject == null)
             {
@@ -420,8 +464,6 @@ namespace BetterFishingRodsVisualResearch
             if (_ringObject.transform.parent != bobber)
                 _ringObject.transform.SetParent(bobber, false);
 
-            _ringObject.transform.localPosition =
-                new Vector3(anchor.x, anchor.y, 0f);
             _ringObject.transform.localRotation = Quaternion.identity;
 
             _ringRenderer.sortingLayerID = bobberRenderer.sortingLayerID;
