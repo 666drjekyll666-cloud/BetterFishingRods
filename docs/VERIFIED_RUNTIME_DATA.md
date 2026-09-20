@@ -147,6 +147,15 @@ Research Probe 0.1.1 closed the lifecycle question with an unmodified wait:
 
 Therefore the production start/end lifecycle for a full countdown is now verified. The sampled objects do **not** prove where the player-visible vanilla ripple graphic is authored. If such a ripple is visible during this phase, it is not represented by an active `water_fx` or `fishing FX` object at the sampled moments; it may be part of the bobber sprite/animation or another uncaptured renderer.
 
+
+### Anchor finding correction after Visual Prototype 0.2.1
+
+Visual Prototype 0.2.1 must not be treated as verified anchor evidence. It introduced a constant `1.90f` local X offset selected from screenshots rather than from host data; runtime feedback rejected that position.
+
+Current runtime evidence shows that cast distance changes the active bobber sprite set. In the sea spot test, distance 1 used `hero_fishing_left_2_bobber_frm_43`, while distance 2 used `hero_fishing_left_bobber_frm_43`; both sprites report a 240x144 rect at 48 pixels-per-unit. Earlier runtime evidence also showed distance/phase-dependent bobber transform positions.
+
+Therefore the exact float/water-contact anchor remains an evidence gap. The next acceptable step is runtime inspection of the actual sprite pivot/mesh/alpha geometry for all three distances. No further guessed constant offset is allowed.
+
 ## Localization / rod descriptions
 
 Pending:
