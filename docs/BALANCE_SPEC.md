@@ -19,52 +19,54 @@ Upgraded rods should also:
 - reduce bite waiting;
 - provide a more forgiving hook reaction window.
 
-Exact values remain deliberately undecided until the current timing calculations are verified.
+Exact values remain deliberately undecided until balance testing.
 
 ### Bite readability
 
-Bite readability should improve **globally for all rods**.
+Bite readability should improve **globally for all rods**. Keep the existing vanilla bite sound unchanged unless later evidence establishes a concrete problem with it. The cue should be in-world around the bobber, not a permanent HUD prompt.
 
-Keep the existing vanilla bite sound unchanged unless later evidence establishes a concrete problem with it.
+## Accepted full-countdown concept
 
-The cue should be in-world around the bobber, not a permanent HUD prompt.
+The visual ring represents the **full effective fish-wait interval**, not only the final fraction before the bite.
 
-Player reports across multiple years consistently describe an **existing vanilla ripple / thin blue ring around the bobber** that disappears just before the bobber dips. Experienced players already use that subtle effect as an early bite cue. This is not yet promoted to a verified runtime implementation fact, but it changes the design priority: first investigate making the existing vanilla ripple clearer and more deliberately readable before adding a separate new ring object.
+Desired sequence:
 
-## Leading bite-cue design
+1. the cast lands;
+2. the bobber/water presentation gets a short natural settling beat;
+3. once vanilla considers the cast settled and actual bite waiting begins, a ring around the bobber starts its countdown;
+4. the ring contracts continuously over the full effective wait;
+5. it reaches the center exactly when the native bite occurs.
 
-Current preferred direction:
+The ring follows the **effective wait after any Better Fishing Rods wait reduction**, so visual timing and gameplay timing cannot drift.
 
-- shortly before the native bite, a subtle ring/ripple appears around the bobber;
-- it contracts toward the bobber;
-- reaching the center coincides with the actual bite;
-- the normal vanilla splash/bobber motion/sound remain the actual bite event;
-- the cue is global and purely informational; it does not change fish selection or create new input.
+### Learnable fish timing is intentional
 
-### Why not a full cast-to-bite countdown by default
+Fish/bait combinations have different native waiting times. The countdown therefore exposes a subtle timing signature of the already-selected catch. This is intentional:
 
-Current fish data proves that waiting time varies by selected fish and bait.
+- different contraction speeds/durations add variety;
+- experienced players may learn recurring timing patterns;
+- correctly anticipating a likely fish from timing is a small skill/knowledge reward;
+- the ring never changes RNG or displays explicit fish identity.
 
-A ring that begins immediately after the cast and exactly represents the full native wait would therefore expose hidden information about the already-selected catch. It could become an unintended fish detector.
+Do not normalize every fish to one countdown duration merely to hide this information.
 
-Preferred solution: a **short fixed pre-bite telegraph**. It still gives the player a clear “get ready now” signal and readable timing while preserving most of the uncertainty of the vanilla wait.
+### Settling delay
 
-The exact lead time is still open. A rough research range such as 0.7–1.0 seconds may be tested, but it is not yet a balance decision.
+Do not begin contraction the instant the cast touches the water.
+
+Current 1.407 IL shows that `UpdateWaitingForBite()` returns while `can_take_out == false`; only afterward does it decrement `_waiting_for_bite_delay`.
+
+Preferred design: start the ring from that native transition rather than adding a second arbitrary delay.
 
 ### Visual hierarchy
 
-Prefer mechanisms in this order:
+Prefer:
 
-1. reuse/drive a verified existing vanilla ripple/water effect if it can express the cue cleanly;
-2. reuse an existing compatible sprite/animation near `bobber`/`water_fx`;
-3. only if those are unsuitable, create one tiny in-world ring asset/object with session-local lifecycle.
+1. reuse/drive a verified existing vanilla ripple/water/fishing-FX asset;
+2. reuse an existing compatible sprite near `bobber`, `fishing FX`, or `water_fx`;
+3. only if unsuitable, create one small in-world ring object with session-local lifecycle.
 
-Do not add:
-
-- a large `!` marker;
-- screen flash;
-- permanent UI;
-- a continuously searching/polling visual system.
+Do not add a large `!`, screen flash, permanent UI, unrelated extra bite sound, or global scene-search/polling system.
 
 ## Energy and bait compensation
 
@@ -74,9 +76,7 @@ Current rod data already makes higher-tier rods more energy-efficient:
 - Good: 0.5;
 - Excellent: 0.3.
 
-Therefore Better Fishing Rods should **not** introduce proportional extra energy costs merely to offset x2/x3 catches unless later progression evidence shows a concrete need.
-
-Likewise, do not automatically consume x2/x3 bait. The product goal is fewer repeated actions, not mathematical preservation of vanilla output per click.
+Do not introduce proportional extra energy or bait costs merely to offset x2/x3 catches unless later progression evidence shows a concrete need.
 
 ## Achievement semantics
 
@@ -84,19 +84,11 @@ Current successful-catch IL sends one `fishing_success` event per successful fis
 
 Default requirement: x2/x3 item quantity must not turn one cast into multiple fishing-success/quest events.
 
-## Balance principles
-
-- No extra fish RNG.
-- Preserve vanilla fish rarity and availability.
-- Preserve one successful fishing cycle as one gameplay/achievement event.
-- Prefer one simple economy adjustment, if one is actually needed, over several compensating penalties.
-- Measure the practical value of x2/x3 before changing rod prices.
-
 ## Open decisions
 
 - Good/Excellent bite-wait reduction.
 - Good/Excellent reaction-window improvement.
-- Exact fixed pre-bite telegraph duration.
-- Reuse of native ripple vs minimal custom ring.
+- Ring size, opacity, thickness, and easing.
+- Reuse of native ripple/fishing FX vs minimal custom ring.
 - Rod prices after economy analysis.
-- Final player-facing rod descriptions.
+- Final rod descriptions.
