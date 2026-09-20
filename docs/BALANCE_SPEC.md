@@ -29,6 +29,8 @@ Keep the existing vanilla bite sound unchanged unless later evidence establishes
 
 The cue should be in-world around the bobber, not a permanent HUD prompt.
 
+Player reports across multiple years consistently describe an **existing vanilla ripple / thin blue ring around the bobber** that disappears just before the bobber dips. Experienced players already use that subtle effect as an early bite cue. This is not yet promoted to a verified runtime implementation fact, but it changes the design priority: first investigate making the existing vanilla ripple clearer and more deliberately readable before adding a separate new ring object.
+
 ## Leading bite-cue design
 
 Current preferred direction:

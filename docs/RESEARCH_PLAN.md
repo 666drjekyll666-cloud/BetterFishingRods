@@ -72,8 +72,11 @@ x2/x3 catch amount must not silently multiply bait use unless explicitly chosen 
 
 Inspect active fishing runtime at the bite transition.
 
+Research clue from player reports: vanilla already appears to have a subtle ripple / thin blue ring around the bobber whose disappearance precedes the bite. Treat this as a hypothesis to verify in live runtime, not as an implementation fact.
+
 Required evidence:
 
+- whether the reported vanilla ripple is owned by `water_fx`, `bobber`, another fishing renderer, or an animation state;
 - what `bobber`, `fishing FX`, and `water_fx` are doing during `WaitingForBite`;
 - what changes exactly at `WaitingForPulling`;
 - whether an existing ripple/sprite/animation can be reused;
