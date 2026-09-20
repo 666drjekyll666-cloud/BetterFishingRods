@@ -200,7 +200,7 @@ namespace BetterFishingRodsVisualResearch
                     return;
                 }
 
-                if (!self.ReadBool(self._canTakeOutField, fishing))
+                if (!ReadBool(self._canTakeOutField, fishing))
                 {
                     self.Write("RING_SKIP reason=can-take-out-false");
                     return;
