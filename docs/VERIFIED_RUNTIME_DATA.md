@@ -53,3 +53,19 @@ It does not write:
 - save data.
 
 Stable production builds create no separate Bite Countdown diagnostic log file.
+
+
+## Stable release 1.0.1
+
+Stable runtime source is tagged `v1.0.1` at commit `d7d63dc6c69109e2b0011f5eb77c2a5d206e9a67`.
+
+Build identity:
+
+- clean Release run: `35543919057`;
+- Actions artifact: `10616015471`;
+- installed DLL: `BiteCountdown.dll`;
+- plugin GUID: `nikich.bitecountdown`;
+- SHA-256: `a84b47e72e8f5f6dd3f7028b45c390a57bed5a236ead0951fc5b4c94f52d581c`;
+- GitHub Release: `v1.0.1`.
+
+The runtime behavior is the accepted countdown implementation. The 1.0.1 production delta is product identity only: Bite Countdown naming, fresh GUID/assembly/DLL identity, release metadata, and removal of the temporary 1.0.0 stable release surface.
