@@ -1,17 +1,17 @@
-# Better Fishing Rods Research Probe 0.1.0
+# Better Fishing Rods Research Probe 0.1.1
 
 Research-only diagnostic for Graveyard Keeper 1.407.
 
 ## Purpose
 
-One normal fishing cast should close the remaining runtime evidence gaps without changing gameplay.
+One normal fishing cast should close the remaining visual/lifecycle evidence gaps without changing gameplay. Version 0.1.1 removes the GetRandomFish patch that contaminated live wait timing in 0.1.0.
 
 The probe:
 
-- dumps current `FishingGUI` method IL relevant to fish selection, waiting, bait and catch handling;
-- observes `GetRandomFish` output and resolved wait;
-- logs fishing state transitions and relevant private fields;
-- snapshots the in-world `bobber`, `fishing FX`, `water_fx` and fish-shadow objects after selection, shortly before the predicted bite, and at fishing state transitions.
+- observes the intact resolved wait after vanilla selection;
+- identifies the native `can_take_out` countdown start;
+- correlates that start with `FishingThrowingAnim.OnStateExit`;
+- snapshots the in-world `bobber`, `fishing FX`, `water_fx` and fish-shadow objects through the real wait and at the bite transition.
 
 ## Safety
 
@@ -23,7 +23,7 @@ It only observes runtime state and writes one text log in the BepInEx root.
 
 Expected output:
 
-`BepInEx/BetterFishingRodsResearchProbe-0.1.0.log`
+`BepInEx/BetterFishingRodsResearchProbe-0.1.1.log`
 
 ## Runtime test
 
