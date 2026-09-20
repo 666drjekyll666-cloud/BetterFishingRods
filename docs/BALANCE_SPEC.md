@@ -2,7 +2,7 @@
 
 ## Accepted product direction
 
-Better Fishing Rods should reduce repeated fishing actions while keeping the vanilla fish-selection and reeling systems recognizable.
+Better Fishing Rods should reduce repeated fishing actions while preserving the vanilla fish-selection and reeling systems.
 
 ### Catch amount
 
@@ -19,44 +19,76 @@ Upgraded rods should also:
 - reduce bite waiting;
 - provide a more forgiving hook reaction window.
 
-The exact values are intentionally undecided until the 1.407 timing model is verified.
+Exact values remain deliberately undecided until balance testing.
 
 ### Bite readability
 
-Readability improvement should apply **globally to all rods**, rather than making the starter rod intentionally hard to read.
+Bite readability should improve **globally for all rods**. Keep the existing vanilla bite sound unchanged unless later evidence establishes a concrete problem with it. The cue should be in-world around the bobber, not a permanent HUD prompt.
 
-Keep the existing vanilla bite sound unless a later concrete requirement says otherwise.
+## Accepted full-countdown concept
 
-Current preferred visual direction is an in-world cue around the bobber, not a HUD prompt.
+The visual ring represents the **full effective fish-wait interval**, not only the final fraction before the bite.
 
-## Leading bite-cue candidate
+Desired sequence:
 
-A subtle ring/ripple appears shortly before the bite and contracts toward the bobber. Reaching the center coincides with the bite.
+1. the cast lands;
+2. the bobber/water presentation gets a short natural settling beat;
+3. once vanilla considers the cast settled and actual bite waiting begins, a ring around the bobber starts its countdown;
+4. the ring contracts continuously over the full effective wait;
+5. it reaches the center exactly when the native bite occurs.
 
-Design goals:
+The ring follows the **effective wait after any Better Fishing Rods wait reduction**, so visual timing and gameplay timing cannot drift.
 
-- readable at normal play distance;
-- visually compatible with Graveyard Keeper;
-- no large icon, screen flash, or mobile-style exclamation marker;
-- no new permanent UI;
-- no additional gameplay input;
-- one-shot/event-driven behavior where possible.
+### Learnable fish timing is intentional
 
-An exact full countdown from cast is **not** the default candidate because vanilla waiting time may contain information about the already-selected fish. Prefer a short fixed pre-bite telegraph unless current runtime evidence shows no meaningful information leak or a better native mechanism exists.
+Fish/bait combinations have different native waiting times. The countdown therefore exposes a subtle timing signature of the already-selected catch. This is intentional:
 
-## Balance principles
+- different contraction speeds/durations add variety;
+- experienced players may learn recurring timing patterns;
+- correctly anticipating a likely fish from timing is a small skill/knowledge reward;
+- the ring never changes RNG or displays explicit fish identity.
 
-- Do not add extra fish RNG.
-- Do not automatically multiply bait or energy costs with catch amount.
-- Measure economic/progression impact before changing rod prices.
-- If compensation is needed, prefer one simple lever.
-- Preserve vanilla rarity and fish availability unless separately approved.
+Do not normalize every fish to one countdown duration merely to hide this information.
+
+### Settling delay
+
+Do not begin contraction the instant the cast touches the water.
+
+Current 1.407 IL shows that `UpdateWaitingForBite()` returns while `can_take_out == false`; only afterward does it decrement `_waiting_for_bite_delay`.
+
+Preferred design: start the ring from that native transition rather than adding a second arbitrary delay.
+
+### Visual hierarchy
+
+Prefer:
+
+1. reuse/drive a verified existing vanilla ripple/water/fishing-FX asset;
+2. reuse an existing compatible sprite near `bobber`, `fishing FX`, or `water_fx`;
+3. only if unsuitable, create one small in-world ring object with session-local lifecycle.
+
+Do not add a large `!`, screen flash, permanent UI, unrelated extra bite sound, or global scene-search/polling system.
+
+## Energy and bait compensation
+
+Current rod data already makes higher-tier rods more energy-efficient:
+
+- Simple: 1.0 energy unit in raw use data;
+- Good: 0.5;
+- Excellent: 0.3.
+
+Do not introduce proportional extra energy or bait costs merely to offset x2/x3 catches unless later progression evidence shows a concrete need.
+
+## Achievement semantics
+
+Current successful-catch IL sends one `fishing_success` event per successful fishing cycle before reward placement.
+
+Default requirement: x2/x3 item quantity must not turn one cast into multiple fishing-success/quest events.
 
 ## Open decisions
 
-- Exact Good/Excellent bite-wait multipliers.
-- Exact Good/Excellent hook-window values or multipliers.
-- Exact pre-bite cue lead time.
-- Whether the cue should reuse an existing ripple or require a minimal new asset.
-- Whether rod purchase prices need adjustment after economy analysis.
-- Exact player-facing rod descriptions.
+- Good/Excellent bite-wait reduction.
+- Good/Excellent reaction-window improvement.
+- Ring size, opacity, thickness, and easing.
+- Reuse of native ripple/fishing FX vs minimal custom ring.
+- Rod prices after economy analysis.
+- Final rod descriptions.
