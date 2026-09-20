@@ -4,7 +4,12 @@ This document stores verified Graveyard Keeper runtime facts relevant to Better 
 
 Target: **Graveyard Keeper 1.407**.
 
-Evidence below comes from the user's current Steam installation/runtime diagnostics captured in August–September 2026, using `Assembly-CSharp 11.0.0.0`, plus direct IL inspection captured from that runtime. Historical decompilations and third-party mods remain research clues only.
+Current verified Assembly-CSharp identity:
+
+- version: `11.0.0.0`;
+- MVID: `6f50b8e7-156b-49ac-bbe8-7505894b2364`.
+
+Evidence comes from the user's installed runtime, current GameBalance data, and direct method IL captured by Better Fishing Rods Research Probe 0.1.0. Live timing after `GetRandomFish` in probe 0.1.0 is not trusted because that probe accidentally overwrote the by-ref waiting-time argument after observing it; the captured method IL itself remains valid.
 
 ## Rod identities and vanilla data
 
@@ -16,115 +21,140 @@ Current runtime GameBalance data confirms:
 | Good Fishing Rod | `fishing_rod_1` | 2 | 3 | 0.90 | -0.5 |
 | Excellent Fishing Rod | `fishing_rod_2` | 3 | 5 | 1.00 | -0.3 |
 
-Implication: vanilla rod progression already improves energy efficiency. Better Fishing Rods should not casually introduce proportional extra energy costs for x2/x3 catches because that would work against an existing vanilla upgrade axis.
+Vanilla rod progression already improves energy efficiency. Better Fishing Rods should not casually add proportional energy penalties for x2/x3 catches.
 
-## Fish-selection data and waiting time
+## Fish selection and resolved waiting time
 
-Current runtime GameBalance contains 26 `FishDefinition` rows.
+Current 1.407 `FishingGUI.ChangeState(WaitingForBite)` calls:
 
-Each fish definition contains:
+`GetRandomFish(ref _waiting_for_bite_delay)`
 
-- `item_id`;
-- `fish_preset`;
-- rod modifiers;
-- spot/distance/time-of-day modifiers;
-- `no_bait_mod`;
-- per-bait modifiers;
-- a `wait_time` inside each bait-data entry.
+and stores the returned `FishDefinition` as `_fish_def`.
 
-Verified examples among actually eligible combinations include different waiting values such as 5, 6, 7, 8 and 9. Waiting time is therefore not one universal fixed delay; it is part of the fish/bait data.
+Current `GetRandomFish(ref float waiting_time)`:
 
-This matters for visual design: an exact cast-to-bite countdown would expose information derived from the already-selected fish/bait combination. A full-duration countdown is therefore not the default design for Better Fishing Rods.
+1. refreshes the currently eligible weighted fish set;
+2. performs one weighted random fish selection;
+3. chooses the selected fish's no-bait or matching-bait `wait_time`;
+4. multiplies that wait by `Random.Range(0.9f, 1.1f)`;
+5. returns the already-selected `FishDefinition`.
 
-## Fishing state / reaction-window data
+Therefore the resolved native wait for one bite attempt is:
 
-Current runtime reflection confirms that `FishingGUI` contains:
+`selected fish/bait wait_time * random factor [0.9, 1.1]`
 
-- state `WaitingForBite`;
-- state `WaitingForPulling`;
-- state `Pulling`;
-- state `TakingOut`;
-- field `_waiting_for_pulling_time`;
-- string field `FISH_CATCH_TIME_MLTPLR`;
-- method `ChangeState(FishingGUI.FishingState)`.
+The mod must not reroll this selection.
 
-Current runtime reflection also confirms `Fishing.FishPreset.catch_time`.
+## Native settling gate and wait consumption
 
-The exact 1.407 expression that combines `catch_time`, player modifiers and `_waiting_for_pulling_time` still requires direct method-body verification before production code relies on it.
+Current `FishingGUI.UpdateWaitingForBite()` is explicit:
 
-## Vanilla fishing reaction buff
+- if `can_take_out == false`, it returns immediately;
+- otherwise it subtracts `Time.deltaTime` from `_waiting_for_bite_delay`;
+- when the timer reaches zero, the bite occurs.
 
-Current GameBalance data contains:
+This establishes a native separation between cast/landing/settling and the actual fish-wait countdown.
 
-- buff ID `buff_fishing`;
-- icon `b_fishing_1`;
-- additive player resource `buff_fish_catch_time_mltplr = 2`.
+For the accepted full-countdown visual, the preferred start point is the native transition to `can_take_out == true`, not the initial `WaitingForBite` state change.
 
-The runtime also exposes `FISH_CATCH_TIME_MLTPLR` in `FishingGUI`.
+Historical decompilation identifies `FishingThrowingAnim.OnStateExit` as the owner that sets `can_take_out=true`; Research Probe 0.1.1 will confirm that exact owner on the current runtime before production relies on it.
 
-This is strong evidence that the game already has a native player-parameter path for extending bite reaction time. The exact consumer expression remains to be verified before choosing the production seam.
+## Catch construction
 
-A separate vanilla fishing buff `buff_fishing2` adds `buff_pulling_fish_mltplr = 1.5`; this affects a different part of fishing and should not be conflated with the bite reaction window.
+When the wait reaches zero, current `UpdateWaitingForBite()` constructs:
+
+`new Item(_fish_def.item_id, 1)`
+
+stores it in `_fish`, loads the selected fish preset, and enters `WaitingForPulling`.
+
+This closes the construction question:
+
+- vanilla fish identity is already fixed;
+- vanilla initializes quantity to exactly 1;
+- the item exists before the `WaitingForPulling` transition.
+
+Leading least-sufficient amount seam: adjust `_fish.value` once when entering `WaitingForPulling`, based only on a recognized equipped rod. Unknown rods remain x1.
+
+## Hook reaction window
+
+Current `FishingGUI.ChangeState(WaitingForPulling)` reads:
+
+`buff_fish_catch_time_mltplr`
+
+Then:
+
+- if its absolute value is <= 0.01, `_waiting_for_pulling_time = _fish_preset.catch_time`;
+- otherwise, `_waiting_for_pulling_time = _fish_preset.catch_time * buff_fish_catch_time_mltplr`.
+
+Current GameBalance contains vanilla `buff_fishing` with:
+
+`buff_fish_catch_time_mltplr = 2`.
+
+The vanilla reaction-time buff path is therefore directly verified.
+
+Preferred mod architecture: scale the already-resolved `_waiting_for_pulling_time` by rod tier after vanilla has applied its own buff, preserving vanilla buff semantics.
+
+A separate `buff_pulling_fish_mltplr` affects a different phase and must not be conflated with the bite reaction window.
+
+## Bait / lure consumption
+
+Current `ChangeState(TakingOut)` calls `RemoveBait(selectedBait)` once when bait is selected, before branching on fishing success.
+
+Current `RemoveBait(Item bait)`:
+
+- for a durability item with enough durability, subtracts exactly one `durability_decrease_on_use_speed`;
+- otherwise removes exactly one bait item from player inventory.
+
+Better Fishing Rods catch quantity must not multiply this vanilla bait/lure consumption.
 
 ## Successful catch / reward path
 
-Direct current-runtime IL for `FishingGUI.UpdateTakingOut()` confirms that on successful fishing the game:
+Current `FishingGUI.UpdateTakingOut()` confirms that on successful fishing the game:
 
 1. calls `AchievementsSystem.CheckKeyQuests("fishing_success", 1)`;
-2. passes the existing `FishingGUI._fish` object to `MainGame.player.AddToInventory`;
-3. if inventory insertion fails, passes that same `_fish` object to `MainGame.player.DropItem`;
-4. records a fishing design event using reservoir/distance/fish identity;
-5. updates known-fish discovery state and related one-time unlocks.
+2. passes the existing `_fish` to `MainGame.player.AddToInventory`;
+3. if inventory insertion fails, passes that same `_fish` to `MainGame.player.DropItem`;
+4. records fishing design/discovery state.
 
-Important consequences:
+Consequences:
 
-- vanilla achievement/key-quest semantics are event-based here: one successful fishing cycle sends one `fishing_success`, independent of item quantity;
-- changing only the final `_fish` amount should not multiply this success event;
-- normal inventory/drop fallback already owns reward placement;
-- a narrow amount change before this native reward path is preferable to custom inventory/drop handling.
+- one successful fishing cycle remains one success/quest event;
+- changing only `_fish.value` does not inherently multiply that event;
+- normal inventory/drop behavior remains host-owned.
 
-Still to verify before production acceptance:
-
-- the exact current 1.407 point where `_fish` is constructed and its quantity initialized;
-- that an amount greater than one remains intact through both inventory and world-drop paths in live runtime;
-- bait/lure consumption timing and count.
+Still requires live edge verification: amount > 1 through full/nearly-full inventory and world-drop fallback.
 
 ## Fishing visual objects
 
-Current installed-runtime hierarchy inspection confirms dedicated player fishing render objects including:
+Current installed runtime confirms player fishing render objects including:
 
 - `fishing FX`;
 - `bobber`;
 - `water_fx`;
 - fish/fish-shadow render objects.
 
-The `bobber` uses a `SpriteRenderer`.
+Probe 0.1.0 could not provide trustworthy mid-countdown visual snapshots because of its by-ref timing bug.
 
-This establishes that an in-world visual cue can potentially live near the existing fishing presentation rather than in a permanent HUD.
+Research Probe 0.1.1 is scoped to:
 
-Not yet verified:
-
-- what animation/resource owns the current bite ripple;
-- whether `water_fx` is the existing bite ripple or another effect;
-- whether an existing vanilla sprite/animation can be reused for the proposed warning ring;
-- the cheapest reliable event seam for starting and cancelling the cue.
+- the native `can_take_out` transition;
+- `FishingThrowingAnim.OnStateExit` correlation;
+- visual snapshots across a real, unmodified wait.
 
 ## Localization / rod descriptions
 
-Pending research:
+Pending:
 
-- exact localization keys for the three rod names/descriptions;
-- whether the current game already has useful rod descriptions that can be extended;
+- exact localization keys for rod names/descriptions;
+- whether current rod descriptions can be extended;
 - least invasive localization/data path.
 
 ## Open runtime evidence
 
-The remaining highest-value research questions are:
+Highest-value remaining questions:
 
-1. current IL for fish creation / `GetRandomFish` / waiting-state transition;
-2. current IL for the hook reaction-window calculation;
-3. bait/lure consumption path;
-4. active fishing presentation at the bite moment, especially `bobber` and `water_fx`;
-5. live amount > 1 inventory/drop behavior.
-
-Do not promote historical decompilation or third-party implementation details into this file unless current runtime evidence confirms them.
+1. current owner/asset for the visible vanilla ripple or equivalent fishing FX;
+2. exact production visual mechanism for the full countdown;
+3. live amount > 1 inventory/drop behavior;
+4. quality/rare fish quantity preservation;
+5. rod localization path.
