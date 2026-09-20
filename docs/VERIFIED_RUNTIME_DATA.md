@@ -225,3 +225,18 @@ Missed-hook lifecycle was verified live: after `WaitingForPulling` times out, va
 The 1.x production implementation only reads these native states/timers and manages the ring object. It does not write fishing state, timer values, fish selection, bait/energy, catch amount, achievements, or save data.
 
 Production release builds must remove research-only per-attempt logging and the separate versioned diagnostic file.
+
+
+## Stable release 1.0.0
+
+Stable runtime source is tagged `v1.0.0` at commit `65c8b444d717905f1567bfe8ddec7f722c4bcb78`.
+
+Build identity:
+
+- clean Release run: `35543002074`;
+- Actions artifact: `10615013873`;
+- installed DLL: `BetterFishingRods.dll`;
+- SHA-256: `45da8cec8e7f29840c5b2b3982aea0469a49490eb52e842239908e1dc2ca210f`;
+- GitHub Release: `v1.0.0`.
+
+The production delta from accepted Visual Prototype 0.2.6 is limited to release identity/structure, removal of research logging and the separate diagnostic file, fail-closed production error handling, and a cached bobber lookup. Countdown lifecycle, accepted X=+2/Y=-2 visual offset, scale, opacity, and native-timer ownership are preserved.
