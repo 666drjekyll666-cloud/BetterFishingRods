@@ -1,0 +1,70 @@
+name: Build Better Fishing Rods anchor probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/fishing-visual
+    paths:
+      - 'research/AnchorProbe.cs'
+      - 'research/BetterFishingRods.AnchorProbe.csproj'
+      - 'nuget.config'
+      - '.github/workflows/build-anchor-probe.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: better-fishing-rods-anchor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore research/BetterFishingRods.AnchorProbe.csproj --configfile nuget.config
+
+      - name: Build Release anchor probe
+        run: dotnet build research/BetterFishingRods.AnchorProbe.csproj -c Release --no-restore --nologo
+
+      - name: Stage immutable anchor artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          dll='research/bin/AnchorProbe/BetterFishingRodsAnchorProbe.dll'
+          test -f "$dll"
+
+          mkdir -p artifacts
+          handoff='Better Fishing Rods Anchor Probe 0.2.2.dll'
+          cp "$dll" "artifacts/$handoff"
+
+          sha256=$(sha256sum "artifacts/$handoff" | awk '{print $1}')
+          {
+            echo 'Artifact: Better Fishing Rods Anchor Probe 0.2.2'
+            echo "Source SHA: $GITHUB_SHA"
+            echo "SHA-256: $sha256"
+            echo 'Purpose: research-only bobber anchor geometry/pixel evidence'
+            echo 'Gameplay changes: none'
+          } > artifacts/BUILD_INFO.txt
+
+          echo "Anchor probe SHA-256: $sha256"
+
+      - name: Upload anchor probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterFishingRods-AnchorProbe-0.2.2-${{ github.sha }}
+          path: |
+            artifacts/Better Fishing Rods Anchor Probe 0.2.2.dll
+            artifacts/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 7
