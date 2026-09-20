@@ -1,80 +1,68 @@
-# Better Fishing Rods — Project Working Contract
+# Bite Countdown — Project Working Contract
 
 This repository follows the canonical global rules in `666drjekyll666-cloud/DevRules`.
 
-Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_POLICY.md`, `GIT_WORKFLOW.md`, `PROJECT_BOOTSTRAP.md`, and `RUNTIME_TEST_HARNESS.md` when runtime evidence is relevant. This file contains only Better Fishing Rods-specific additions.
+Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_POLICY.md`, `GIT_WORKFLOW.md`, `PROJECT_BOOTSTRAP.md`, and `RUNTIME_TEST_HARNESS.md` when runtime evidence is relevant.
 
 ## Project identity
 
-- Project: **Better Fishing Rods**
-- Repository: `666drjekyll666-cloud/BetterFishingRods`
+- Project: **Bite Countdown**
 - Game: **Graveyard Keeper 1**
 - Target version: **1.407**
 - Mod stack: **BepInEx / Harmony**
+- BepInEx GUID: `nikich.bitecountdown`
+- Stable installed DLL: `BiteCountdown.dll`
 
-## Current product scope
+The current GitHub repository path is the historical repository container used during development. Product identity is Bite Countdown; do not reintroduce the earlier rod-balance product concept into runtime or release naming.
 
-**1.x is a visual-only fishing quality-of-life mod.**
+## Product scope
 
-It adds a subtle in-world ring around the bobber during the native bite-wait interval. The ring contracts across the already-selected vanilla wait and reaches the bobber when the native bite occurs.
+Bite Countdown is a visual-only fishing quality-of-life mod.
 
-1.x must not change:
+It adds a subtle in-world ring around the bobber during the native bite-wait interval. The ring contracts across the already-resolved vanilla wait and reaches the bobber when the native bite occurs.
+
+The mod must not change:
 
 - fish selection, quality, rarity, spots, casting distance, time-of-day logic, bait/lure semantics, or rod-specific fish availability;
-- wait duration or hook reaction duration;
+- bite wait duration or hook reaction duration;
 - energy use;
 - caught item amount;
 - the reeling minigame;
-- achievements, quest semantics, or reward handling.
-
-Earlier x2/x3 catch and rod-balance ideas are **deferred and are not part of the current released product**. Do not add them to 1.x without an explicit new product decision.
+- achievements, quest semantics, reward handling, or save data.
 
 ## Architecture constraints
 
 Follow the global host-native-first gate.
 
-The countdown is presentation-only:
+- Vanilla owns fish selection and `_waiting_for_bite_delay`.
+- Initial countdown starts after verified `FishingThrowingAnim.OnStateExit` enables `can_take_out`.
+- After a missed hook, vanilla can return directly to `WaitingForBite`; re-arm only when the resulting state is `WaitingForBite` and `can_take_out == true`.
+- The visual coroutine reads the native timer. It never writes or replaces the gameplay timer.
+- Anchor to the current bobber sprite tight mesh and apply accepted visual offset X=+2, Y=-2 game pixels.
+- No permanent Harmony `Update()` patch, broad polling, or parallel fishing state machine.
+- Unsupported runtime states fail closed by disabling only the countdown.
 
-- vanilla owns fish selection and `_waiting_for_bite_delay`;
-- initial countdown starts after the verified native `FishingThrowingAnim.OnStateExit` transition enables `can_take_out`;
-- after a missed hook, vanilla can return directly from `WaitingForPulling` to `WaitingForBite`; re-arm only from that native state when `can_take_out == true`;
-- visual progress reads the existing native timer; it must not own or write a parallel gameplay timer;
-- anchor to the current bobber sprite's tight mesh and apply the accepted visual offset X=+2, Y=-2 game pixels;
-- no permanent Harmony `Update()` patch, global polling, or per-frame scene search.
+## Visual constants accepted by runtime test
 
-Unknown/unsupported runtime states must fail closed by disabling only the countdown.
+- start scale: `1.55`;
+- end scale: `0.08`;
+- alpha at full wait: `0.34`;
+- alpha near bite: `0.58`;
+- visual offset: `X=+2, Y=-2` game pixels.
 
 ## Diagnostics
 
-Release builds must not create a separate Better Fishing Rods diagnostic log.
-
-Research builds may use temporary diagnostics on research branches. Production may emit one BepInEx error when a required 1.407 seam is unavailable or a fatal runtime compatibility failure disables the countdown.
+Stable releases must not create a separate diagnostic log file. Production may emit one normal BepInEx error only when a fatal compatibility/runtime failure disables the countdown.
 
 ## Save / compatibility
 
-The mod writes no custom save data. Removing the DLL restores vanilla fishing behavior without migration.
+The mod writes no custom save data. Removing `BiteCountdown.dll` restores vanilla behavior without migration.
 
 ## Git / acceptance
 
-- `main`: stable/accepted state plus documentation/bookkeeping allowed by global policy.
-- Research work: `research/*`.
+- `main`: stable accepted state.
+- Research: `research/*`.
 - Build-bearing development: `dev/X.Y.Z`.
-- Numbered binaries handed to the user are immutable.
-- Stable installed DLL name: `BetterFishingRods.dll`.
-- Record handed builds in `docs/TEST_BUILD_LOG.md`.
-- User acceptance of a tested numbered build gates stable promotion under global `GIT_WORKFLOW.md`.
-
-## CI
-
-Do not run hosted CI for research, docs, bookkeeping, or intermediate commits unless a concrete executable property needs verification.
-
-Before stable binary publication, require one clean Release build from the exact production source state. A GitHub Release should reuse that exact accepted/hash-verified artifact rather than rebuilding it.
-
-## Long-lived sources of truth
-
-- `AGENTS.md`
-- `docs/VERIFIED_RUNTIME_DATA.md`
-- `docs/RESEARCH_PLAN.md`
-- `docs/TEST_BUILD_LOG.md`
-- `README.md`
-- `CHANGELOG.md`
+- Numbered binaries are immutable once handed/published.
+- Stable installed DLL: `BiteCountdown.dll`.
+- GitHub Releases are the stable binary surface.

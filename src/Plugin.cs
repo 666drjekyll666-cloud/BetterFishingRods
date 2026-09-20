@@ -6,14 +6,14 @@ using BepInEx;
 using HarmonyLib;
 using UnityEngine;
 
-namespace BetterFishingRods
+namespace BiteCountdown
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "nikich.betterfishingrods";
-        public const string PluginName = "Better Fishing Rods";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginGuid = "nikich.bitecountdown";
+        public const string PluginName = "Bite Countdown";
+        public const string PluginVersion = "1.0.1";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -339,7 +339,7 @@ namespace BetterFishingRods
             if (_ringObject == null)
             {
                 _ringObject = new GameObject(
-                    "BetterFishingRods_CountdownRing");
+                    "BiteCountdown_CountdownRing");
                 _ringRenderer = _ringObject.AddComponent<SpriteRenderer>();
 
                 if (_ringSprite == null)
@@ -360,7 +360,7 @@ namespace BetterFishingRods
                         SpriteMeshType.FullRect);
 
                     _ringSprite.name =
-                        "BetterFishingRods_CountdownRing";
+                        "BiteCountdown_CountdownRing";
                 }
 
                 _ringRenderer.sprite = _ringSprite;
@@ -423,7 +423,7 @@ namespace BetterFishingRods
                 false);
 
             texture.name =
-                "BetterFishingRods_CountdownRing_Texture";
+                "BiteCountdown_CountdownRing_Texture";
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
 
@@ -568,7 +568,7 @@ namespace BetterFishingRods
             StopRing();
 
             Logger.LogError(
-                "Better Fishing Rods disabled its countdown after "
+                "Bite Countdown disabled its countdown after "
                 + stage
                 + " failure: "
                 + ex.GetType().Name

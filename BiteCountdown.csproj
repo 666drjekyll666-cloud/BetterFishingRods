@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>7.3</LangVersion>
-    <AssemblyName>BetterFishingRods</AssemblyName>
-    <RootNamespace>BetterFishingRods</RootNamespace>
+    <AssemblyName>BiteCountdown</AssemblyName>
+    <RootNamespace>BiteCountdown</RootNamespace>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Optimize>true</Optimize>
     <DebugType>none</DebugType>
@@ -11,9 +11,9 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>bin/ReleasePlugin/</OutputPath>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

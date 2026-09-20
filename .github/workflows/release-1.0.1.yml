@@ -1,4 +1,4 @@
-name: Publish Better Fishing Rods 1.0.0
+name: Publish Bite Countdown 1.0.1
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
       - main
     paths:
       - 'src/**'
-      - 'BetterFishingRods.csproj'
+      - 'BiteCountdown.csproj'
       - 'nuget.config'
       - 'RELEASE_NOTES.md'
-      - '.github/workflows/release-1.0.0.yml'
+      - '.github/workflows/release-1.0.1.yml'
 
 permissions:
   contents: write
@@ -23,16 +23,7 @@ jobs:
       - name: Checkout release metadata
         uses: actions/checkout@v4
 
-      - name: Stop if release already exists
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view v1.0.0 >/dev/null 2>&1; then
-            echo 'v1.0.0 already exists; nothing to publish.'
-            exit 0
-          fi
-
-      - name: Download exact candidate artifact for this source SHA
+      - name: Verify exact candidate artifact
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -43,12 +34,12 @@ jobs:
           artifact_id=$(printf '%s' "$artifact_json" | jq -r --arg sha "$GITHUB_SHA" '
             .artifacts[]
             | select(.workflow_run.head_sha == $sha)
-            | select(.name | startswith("BetterFishingRods-1.0.0-"))
+            | select(.name | startswith("BiteCountdown-1.0.1-"))
             | .id
           ' | head -n 1)
 
           if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
-            echo "No 1.0.0 candidate artifact found for source $GITHUB_SHA" >&2
+            echo "No Bite Countdown 1.0.1 candidate artifact found for source $GITHUB_SHA" >&2
             exit 1
           fi
 
@@ -56,26 +47,34 @@ jobs:
           mkdir -p release
           unzip -q candidate.zip -d release
 
-          test -f release/BetterFishingRods.dll
+          test -f release/BiteCountdown.dll
           test -f release/BUILD_INFO.txt
 
           recorded_source=$(sed -n 's/^Source SHA: //p' release/BUILD_INFO.txt)
           recorded_hash=$(sed -n 's/^SHA-256: //p' release/BUILD_INFO.txt)
-          actual_hash=$(sha256sum release/BetterFishingRods.dll | awk '{print $1}')
+          actual_hash=$(sha256sum release/BiteCountdown.dll | awk '{print $1}')
 
           test "$recorded_source" = "$GITHUB_SHA"
           test "$recorded_hash" = "$actual_hash"
 
-          printf '%s  %s\n' "$actual_hash" "BetterFishingRods.dll" > release/SHA256SUMS.txt
-          echo "Publishing exact candidate artifact $artifact_id"
+          printf '%s  %s\n' "$actual_hash" "BiteCountdown.dll" > release/SHA256SUMS.txt
+          echo "Verified candidate artifact $artifact_id"
           echo "SHA-256: $actual_hash"
 
-      - name: Create GitHub Release
+      - name: Replace temporary historical release with final product release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
+          set -euo pipefail
+
           if gh release view v1.0.0 >/dev/null 2>&1; then
-            exit 0
+            gh release delete v1.0.0 --cleanup-tag --yes
           fi
 
-          gh release create v1.0.0             release/BetterFishingRods.dll             release/SHA256SUMS.txt             --target "$GITHUB_SHA"             --title "Better Fishing Rods 1.0.0"             --notes-file RELEASE_NOTES.md
+          if gh release view v1.0.1 >/dev/null 2>&1; then
+            echo 'v1.0.1 already exists; refusing to overwrite immutable release.' >&2
+            exit 1
+          fi
+
+          gh release create v1.0.1             release/BiteCountdown.dll             release/SHA256SUMS.txt             --target "$GITHUB_SHA"             --title "Bite Countdown 1.0.1"             --notes-file RELEASE_NOTES.md
