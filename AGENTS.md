@@ -12,96 +12,68 @@ Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_
 - Target version: **1.407**
 - Mod stack: **BepInEx / Harmony**
 
-## Product scope
+## Current product scope
 
-The mod should reduce fishing repetition without replacing the vanilla fishing system.
+**1.x is a visual-only fishing quality-of-life mod.**
 
-Current accepted direction:
+It adds a subtle in-world ring around the bobber during the native bite-wait interval. The ring contracts across the already-selected vanilla wait and reaches the bobber when the native bite occurs.
 
-- Simple Fishing Rod: catch amount x1;
-- Good Fishing Rod: x2 of the same catch already selected by vanilla;
-- Excellent Fishing Rod: x3 of the same catch already selected by vanilla;
-- upgraded rods should reduce bite waiting and increase the hook reaction window, with exact values chosen only after runtime research;
-- bite readability should be improved globally for all rods;
-- the existing bite sound should remain vanilla unless later evidence establishes a concrete problem with it.
+1.x must not change:
 
-Do not silently change fish species/quality selection, rarity, fishing spots, casting distances, time-of-day logic, bait/lure semantics, vanilla rod-specific fish availability, the reeling minigame, fishing buffs, achievements, or quest semantics.
+- fish selection, quality, rarity, spots, casting distance, time-of-day logic, bait/lure semantics, or rod-specific fish availability;
+- wait duration or hook reaction duration;
+- energy use;
+- caught item amount;
+- the reeling minigame;
+- achievements, quest semantics, or reward handling.
+
+Earlier x2/x3 catch and rod-balance ideas are **deferred and are not part of the current released product**. Do not add them to 1.x without an explicit new product decision.
 
 ## Architecture constraints
 
 Follow the global host-native-first gate.
 
-Preferred catch path:
+The countdown is presentation-only:
 
-`vanilla determines catch -> mod adjusts final amount -> vanilla continues`
+- vanilla owns fish selection and `_waiting_for_bite_delay`;
+- initial countdown starts after the verified native `FishingThrowingAnim.OnStateExit` transition enables `can_take_out`;
+- after a missed hook, vanilla can return directly from `WaitingForPulling` to `WaitingForBite`; re-arm only from that native state when `can_take_out == true`;
+- visual progress reads the existing native timer; it must not own or write a parallel gameplay timer;
+- anchor to the current bobber sprite's tight mesh and apply the accepted visual offset X=+2, Y=-2 game pixels;
+- no permanent Harmony `Update()` patch, global polling, or per-frame scene search.
 
-Prefer changing verified host-owned timing inputs for bite wait and hook window rather than replacing the fishing state machine.
+Unknown/unsupported runtime states must fail closed by disabling only the countdown.
 
-For bite readability, prefer a narrow in-world one-shot effect tied to the native fishing lifecycle. Reuse an existing bobber/water effect or host animation path when practical. Avoid a permanent HUD, broad polling, per-frame object searches, or a parallel timing system.
+## Diagnostics
 
-Unknown rods or unsupported states must fail safe to vanilla x1 behavior.
+Release builds must not create a separate Better Fishing Rods diagnostic log.
 
-## Evidence requirements before production implementation
-
-Verify against Graveyard Keeper 1.407:
-
-- exact IDs and data for all three rods;
-- where the fish is finally selected;
-- where the caught `Item` and its amount are created/granted;
-- full-inventory/drop behavior;
-- bait consumption semantics;
-- achievements/statistics interactions with amount;
-- the source and consumer of bite waiting time;
-- the source and consumer of the hook reaction window;
-- how the vanilla Fast Reflexes effect changes hook timing;
-- the native bite/bobber/ripple lifecycle and available visual assets/events;
-- rod name/description/price data and the least invasive localization path.
-
-Third-party mods, old decompilations, wikis, and player reports are research hints only unless confirmed against current runtime evidence.
-
-## Bite cue design gate
-
-The preferred UX direction is an immersive visual cue around the bobber, visually consistent with vanilla water effects.
-
-Accepted direction: a subtle ring/ripple represents the full effective fish-wait interval. It starts only after the cast has settled and vanilla begins consuming the actual bite timer, then contracts continuously and reaches the bobber at the native bite moment.
-
-Fish-dependent timing is intentionally learnable player information: experienced players may recognize timing patterns as a small skill/knowledge reward. Do not normalize fish waits merely to hide this. Before implementation, verify whether an existing vanilla effect can be reused or adjusted.
-
-## Balance rules
-
-The goal is less repetition, not preservation of vanilla output per real-world minute at all costs.
-
-Do not automatically add proportional energy/bait penalties for x2/x3 catches. Evaluate economy impact first. If compensation is actually needed, prefer one simple lever over multiple coupled systems.
-
-Do not add a config menu or arbitrary player multipliers without a concrete need.
+Research builds may use temporary diagnostics on research branches. Production may emit one BepInEx error when a required 1.407 seam is unavailable or a fatal runtime compatibility failure disables the countdown.
 
 ## Save / compatibility
 
-Avoid custom persistent save data unless necessary. Removing the DLL should restore vanilla behavior without migration.
-
-Do not globally alter fish item definitions or affect fish obtained through trade, crafting, console commands, or unrelated mods.
+The mod writes no custom save data. Removing the DLL restores vanilla fishing behavior without migration.
 
 ## Git / acceptance
 
 - `main`: stable/accepted state plus documentation/bookkeeping allowed by global policy.
 - Research work: `research/*`.
-- Build-bearing development: `dev/X.Y.Z` or a narrowly named development branch.
+- Build-bearing development: `dev/X.Y.Z`.
 - Numbered binaries handed to the user are immutable.
 - Stable installed DLL name: `BetterFishingRods.dll`.
-- Record every handed build in `docs/TEST_BUILD_LOG.md`.
+- Record handed builds in `docs/TEST_BUILD_LOG.md`.
 - User acceptance of a tested numbered build gates stable promotion under global `GIT_WORKFLOW.md`.
 
 ## CI
 
 Do not run hosted CI for research, docs, bookkeeping, or intermediate commits unless a concrete executable property needs verification.
 
-Before binary handoff, require the project's clean Release build gate from the exact source state. Do not assume a Windows runner is required until the toolchain proves it.
+Before stable binary publication, require one clean Release build from the exact production source state. A GitHub Release should reuse that exact accepted/hash-verified artifact rather than rebuilding it.
 
 ## Long-lived sources of truth
 
 - `AGENTS.md`
 - `docs/VERIFIED_RUNTIME_DATA.md`
-- `docs/BALANCE_SPEC.md`
 - `docs/RESEARCH_PLAN.md`
 - `docs/TEST_BUILD_LOG.md`
 - `README.md`

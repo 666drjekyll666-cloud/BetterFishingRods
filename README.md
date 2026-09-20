@@ -1,19 +1,36 @@
 # Better Fishing Rods
 
-Better Fishing Rods is a focused quality-of-life mod for **Graveyard Keeper 1.407**.
+A small quality-of-life mod for **Graveyard Keeper 1.407**.
 
-The goal is to make fishing less repetitive while preserving the vanilla fishing system: the game still decides which fish is caught, while better rods make each successful fishing cycle more worthwhile and easier to read.
+Better Fishing Rods adds a subtle shrinking ring around the fishing bobber while you wait for a bite. The ring follows the game's real waiting time and reaches the bobber when the native bite happens.
 
-## Planned direction
+## What it changes
 
-- **Simple Fishing Rod** — vanilla catch amount (x1).
-- **Good Fishing Rod** — x2 of the same vanilla-selected catch.
-- **Excellent Fishing Rod** — x3 of the same vanilla-selected catch.
-- Better rods are also intended to reduce bite waiting and provide a more forgiving hook window; exact values are still under research.
-- Bite readability should improve globally without replacing the existing fishing minigame or its sound design.
+- Adds an in-world countdown ring around the bobber.
+- Works across the full native bite-wait interval.
+- Appears again if you miss a hook and the game starts another wait.
 
-The mod should not add its own fish tables, reroll catches, change rarity, or replace the vanilla fishing minigame.
+## What it does not change
 
-## Status
+Version 1.x does **not** change fishing balance:
 
-Early research and design phase. Runtime assumptions are being verified against Graveyard Keeper 1.407 before production implementation.
+- no faster bites;
+- no longer hook window;
+- no extra fish;
+- no changes to fish selection, rarity, quality, bait, energy, or the reeling minigame.
+
+The game still owns the entire fishing result. The mod only visualizes the waiting phase.
+
+## Installation
+
+1. Install BepInEx 5 for Graveyard Keeper.
+2. Put `BetterFishingRods.dll` into `Graveyard Keeper/BepInEx/plugins/`.
+3. Start the game.
+
+No configuration is required.
+
+## Compatibility
+
+Targeted and tested against **Graveyard Keeper 1.407**.
+
+The mod stores no custom save data. Removing `BetterFishingRods.dll` restores vanilla behavior without save migration.

@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
-### Added
-- Initial project engineering contract and repository bootstrap.
-- Runtime evidence, balance, research-plan, and test-build documentation.
-- Initial product direction for catch multipliers, bite timing improvements, and global bite readability.
+- Added a subtle in-world countdown ring around the fishing bobber.
+- The ring follows the native fish wait and reaches the bobber at the bite.
+- Missed hooks correctly re-arm the ring when vanilla starts another wait.
+- Uses the accepted visual alignment and opacity.
+- Does not change fishing balance, catches, bait, energy, or the reeling minigame.
+- Release build contains no separate diagnostic log file.
