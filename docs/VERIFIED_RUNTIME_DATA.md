@@ -85,7 +85,27 @@ The runtime behavior is the accepted countdown implementation. The 1.0.1 product
 
 The 1.0.2 candidate changes only residual visual-anchor coordinate semantics. Fishing lifecycle, timer ownership, ring scale/alpha, missed-hook re-arm behavior and gameplay isolation are unchanged from 1.0.1.
 
-Acceptance requires one right-facing spot and one left-facing spot to confirm:
-- right-facing alignment remains correct;
-- left-facing alignment is corrected;
-- ring timing and missed-hook re-arm remain unchanged.
+It was handed as an immutable candidate and then superseded before acceptance by 1.0.3, which carries the same orientation fix plus the requested brightness work.
+
+
+## Ambient-aware ring brightness — 1.0.3 candidate
+
+Keeper's Lantern 1.0.12 source verifies that its accepted outdoor-night **Night Brightness** value is an ambient scale of **0.70**. Its world-lighting pass applies the final transformed colour to Unity's global `RenderSettings.ambientLight` in `LateUpdate`.
+
+That gives Bite Countdown a generic host-level signal instead of a mod-specific integration:
+
+- with vanilla lighting, `RenderSettings.ambientLight` contains the vanilla final ambient colour;
+- with Keeper's Lantern, the same value already contains its final darker/tinted ambient result;
+- Bite Countdown does not reference Keeper's Lantern assemblies, GUIDs, config, or state.
+
+The 1.0.3 candidate deliberately skips a separate runtime-measurement research step at the user's request and uses a bounded visual rule:
+
+- base ring RGB: **0.60 / 0.82 / 0.92** (reduced from 0.72 / 0.93 / 1.00);
+- existing alpha curve remains **0.34 -> 0.58**;
+- once per native bite wait, after one `WaitForEndOfFrame`, read `RenderSettings.ambientLight.grayscale`;
+- compute RGB multiplier with `Lerp(0.62, 1.00, ambientGrayscale)`;
+- apply that multiplier only to ring RGB.
+
+The end-of-frame sample is intentional: it observes the final ambient value after ordinary `LateUpdate` lighting work such as Keeper's Lantern's ambient pass. The value is sampled once per wait rather than polled continuously; a missed-hook re-arm naturally samples again.
+
+This is presentation-only. It does not write global lighting state, does not change alpha/timing/gameplay, and does not require a lighting mod.
