@@ -65,7 +65,7 @@ It does not write:
 Stable production builds create no separate Bite Countdown diagnostic log file.
 
 
-## Stable release 1.0.1
+## Historical stable release 1.0.1
 
 Stable runtime source is tagged `v1.0.1` at commit `d7d63dc6c69109e2b0011f5eb77c2a5d206e9a67`.
 
@@ -130,3 +130,22 @@ Accepted build identity:
 - installed DLL: `BiteCountdown.dll`;
 - plugin GUID: `nikich.bitecountdown`;
 - SHA-256: `77be2d8e0a03197df8e9b82ffb4b6f8971c137f585f44fba50cafd47dc575f02`.
+
+
+## Stable release 1.0.3
+
+Stable accepted runtime source is frozen at `candidate/1.0.3` and tagged `v1.0.3` at commit `2b5c3cfec638098328eaf5707d0e79effb9a1bf6`.
+
+Build and release identity:
+
+- clean Release run: `35623960905`;
+- Actions artifact: `10651360220`;
+- installed DLL: `BiteCountdown.dll`;
+- plugin GUID: `nikich.bitecountdown`;
+- SHA-256: `77be2d8e0a03197df8e9b82ffb4b6f8971c137f585f44fba50cafd47dc575f02`;
+- stable publication workflow run: `35625713142` (successful retry / attempt 2 after a transient GitHub HTTP 500 on the first publication attempt);
+- GitHub Release ID: `393117260`;
+- GitHub Release: `v1.0.3`;
+- release asset `BiteCountdown.dll` digest matches the accepted candidate SHA-256 exactly.
+
+The stable `main` branch may contain documentation/workflow commits after the accepted runtime source, but `src/Plugin.cs` and `BiteCountdown.csproj` were verified by the publication gate to match the accepted candidate before release.
