@@ -13,6 +13,7 @@ Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_
 - Mod stack: **BepInEx / Harmony**
 - BepInEx GUID: `nikich.bitecountdown`
 - Stable installed DLL: `BiteCountdown.dll`
+- Current accepted stable runtime baseline: **1.0.3**
 
 Do not reintroduce the earlier rod-balance product concept into runtime or release naming.
 
@@ -43,7 +44,7 @@ Follow the global host-native-first gate.
 - No permanent Harmony `Update()` patch, broad polling, or parallel fishing state machine.
 - Unsupported runtime states fail closed by disabling only the countdown.
 
-## Visual constants / current candidate
+## Accepted visual behavior
 
 - start scale: `1.55`;
 - end scale: `0.08`;
