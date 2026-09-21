@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed horizontal countdown-ring alignment when fishing to the left.
+- Preserves the accepted right-facing alignment.
+- The residual bobber-art correction now lives in sprite-local space, so the game's native left/right mirroring also mirrors that correction.
+- No fishing balance, timing, catch, bait, energy, save, or minigame behavior changes.
+
 ## 1.0.1
 
 - First stable release under the final **Bite Countdown** identity.
