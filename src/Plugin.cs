@@ -13,7 +13,7 @@ namespace BiteCountdown
     {
         public const string PluginGuid = "nikich.bitecountdown";
         public const string PluginName = "Bite Countdown";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -24,8 +24,8 @@ namespace BiteCountdown
         private const int RingHeight = 32;
         private const float RingStartScale = 1.55f;
         private const float RingEndScale = 0.08f;
-        private const int AcceptedOffsetXPixels = 2;
-        private const int AcceptedOffsetYPixels = -2;
+        private const int SpriteOffsetXPixels = -2;
+        private const int SpriteOffsetYPixels = -2;
 
         internal static Plugin Instance;
 
@@ -247,18 +247,21 @@ namespace BiteCountdown
             if (anchorPpu <= 0f)
                 anchorPpu = 48f;
 
-            var lossy = bobber.lossyScale;
-            var xDirection = lossy.x < 0f ? -1f : 1f;
-            var yDirection = lossy.y < 0f ? -1f : 1f;
-
-            var acceptedOffset = new Vector2(
-                AcceptedOffsetXPixels * xDirection / anchorPpu,
-                AcceptedOffsetYPixels * yDirection / anchorPpu);
+            // The residual correction belongs to the bobber sprite itself.
+            // Keep it in sprite-local pixels and let the native bobber/player
+            // transform mirror it with fishing direction.
+            var spriteOffset = new Vector2(
+                SpriteOffsetXPixels
+                    * (bobberRenderer.flipX ? -1f : 1f)
+                    / anchorPpu,
+                SpriteOffsetYPixels
+                    * (bobberRenderer.flipY ? -1f : 1f)
+                    / anchorPpu);
 
             EnsureRingObject(
                 bobber,
                 bobberRenderer,
-                anchor + acceptedOffset);
+                anchor + spriteOffset);
 
             _ringGeneration++;
             var generation = _ringGeneration;
