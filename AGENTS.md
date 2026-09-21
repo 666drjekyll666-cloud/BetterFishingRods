@@ -43,13 +43,17 @@ Follow the global host-native-first gate.
 - No permanent Harmony `Update()` patch, broad polling, or parallel fishing state machine.
 - Unsupported runtime states fail closed by disabling only the countdown.
 
-## Visual constants accepted by runtime test
+## Visual constants / current candidate
 
 - start scale: `1.55`;
 - end scale: `0.08`;
 - alpha at full wait: `0.34`;
 - alpha near bite: `0.58`;
-- sprite-local visual correction: `X=-2, Y=-2` game pixels. This preserves the accepted right-facing placement and mirrors the horizontal correction for left-facing fishing.
+- sprite-local visual correction: `X=-2, Y=-2` game pixels. This preserves the accepted right-facing placement and mirrors the horizontal correction for left-facing fishing;
+- ring base RGB: `0.60, 0.82, 0.92`;
+- alpha remains `0.34 -> 0.58`;
+- once per native wait, sample final `RenderSettings.ambientLight` at end-of-frame and scale RGB by a bounded factor `0.62 -> 1.00` based on ambient grayscale;
+- brightness adaptation must have no direct dependency on Keeper's Lantern or any other lighting mod.
 
 ## Diagnostics
 
