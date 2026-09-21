@@ -13,7 +13,7 @@ namespace BiteCountdown
     {
         public const string PluginGuid = "nikich.bitecountdown";
         public const string PluginName = "Bite Countdown";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
 
         private const BindingFlags AllInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -26,6 +26,10 @@ namespace BiteCountdown
         private const float RingEndScale = 0.08f;
         private const int SpriteOffsetXPixels = -2;
         private const int SpriteOffsetYPixels = -2;
+        private const float RingColorR = 0.60f;
+        private const float RingColorG = 0.82f;
+        private const float RingColorB = 0.92f;
+        private const float MinimumAmbientColorFactor = 0.62f;
 
         internal static Plugin Instance;
 
@@ -42,6 +46,7 @@ namespace BiteCountdown
         private Texture2D _ringTexture;
         private Coroutine _ringCoroutine;
         private int _ringGeneration;
+        private float _ambientColorFactor = 1f;
         private bool _runtimeFailed;
 
         private void Awake()
@@ -266,11 +271,39 @@ namespace BiteCountdown
             _ringGeneration++;
             var generation = _ringGeneration;
 
+            _ambientColorFactor = 1f;
             _ringObject.SetActive(true);
             ApplyRingVisual(1f);
 
+            StartCoroutine(CaptureAmbientColorFactor(generation));
+
             _ringCoroutine = StartCoroutine(
                 AnimateRing(fishingGui, initialWait, generation));
+        }
+
+        private IEnumerator CaptureAmbientColorFactor(int generation)
+        {
+            // Keeper's Lantern (when present) applies its final ambient colour in
+            // LateUpdate. Sampling at end-of-frame therefore observes the actual
+            // scene ambient without any direct dependency on that mod. Vanilla
+            // lighting follows the same generic RenderSettings path.
+            yield return new WaitForEndOfFrame();
+
+            if (_runtimeFailed
+                || generation != _ringGeneration
+                || _ringObject == null
+                || !_ringObject.activeSelf)
+            {
+                yield break;
+            }
+
+            var ambientLuminance =
+                Mathf.Clamp01(RenderSettings.ambientLight.grayscale);
+
+            _ambientColorFactor = Mathf.Lerp(
+                MinimumAmbientColorFactor,
+                1f,
+                ambientLuminance);
         }
 
         private IEnumerator AnimateRing(
@@ -312,12 +345,16 @@ namespace BiteCountdown
             _ringObject.transform.localScale =
                 new Vector3(scale, scale, 1f);
 
-            var color = _ringRenderer.color;
-            color.a = Mathf.Lerp(
+            var alpha = Mathf.Lerp(
                 0.58f,
                 0.34f,
                 Mathf.Clamp01(remainingRatio));
-            _ringRenderer.color = color;
+
+            _ringRenderer.color = new Color(
+                RingColorR * _ambientColorFactor,
+                RingColorG * _ambientColorFactor,
+                RingColorB * _ambientColorFactor,
+                alpha);
         }
 
         private void StopRing()
@@ -368,7 +405,7 @@ namespace BiteCountdown
 
                 _ringRenderer.sprite = _ringSprite;
                 _ringRenderer.color =
-                    new Color(0.72f, 0.93f, 1f, 0.34f);
+                    new Color(RingColorR, RingColorG, RingColorB, 0.34f);
                 _ringObject.SetActive(false);
             }
 
