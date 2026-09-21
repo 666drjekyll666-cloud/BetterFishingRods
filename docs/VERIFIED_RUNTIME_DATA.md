@@ -88,7 +88,7 @@ The 1.0.2 candidate changes only residual visual-anchor coordinate semantics. Fi
 It was handed as an immutable candidate and then superseded before acceptance by 1.0.3, which carries the same orientation fix plus the requested brightness work.
 
 
-## Ambient-aware ring brightness — 1.0.3 candidate
+## Ambient-aware ring brightness — accepted 1.0.3
 
 Keeper's Lantern 1.0.12 source verifies that its accepted outdoor-night **Night Brightness** value is an ambient scale of **0.70**. Its world-lighting pass applies the final transformed colour to Unity's global `RenderSettings.ambientLight` in `LateUpdate`.
 
@@ -98,7 +98,7 @@ That gives Bite Countdown a generic host-level signal instead of a mod-specific 
 - with Keeper's Lantern, the same value already contains its final darker/tinted ambient result;
 - Bite Countdown does not reference Keeper's Lantern assemblies, GUIDs, config, or state.
 
-The 1.0.3 candidate deliberately skips a separate runtime-measurement research step at the user's request and uses a bounded visual rule:
+The accepted 1.0.3 implementation deliberately skipped a separate runtime-measurement research step at the user's request and uses a bounded visual rule:
 
 - base ring RGB: **0.60 / 0.82 / 0.92** (reduced from 0.72 / 0.93 / 1.00);
 - existing alpha curve remains **0.34 -> 0.58**;
@@ -109,3 +109,24 @@ The 1.0.3 candidate deliberately skips a separate runtime-measurement research s
 The end-of-frame sample is intentional: it observes the final ambient value after ordinary `LateUpdate` lighting work such as Keeper's Lantern's ambient pass. The value is sampled once per wait rather than polled continuously; a missed-hook re-arm naturally samples again.
 
 This is presentation-only. It does not write global lighting state, does not change alpha/timing/gameplay, and does not require a lighting mod.
+
+
+### 1.0.3 runtime acceptance
+
+The exact 1.0.3 candidate from source `2b5c3cfec638098328eaf5707d0e79effb9a1bf6` was runtime-tested on Graveyard Keeper 1.407 with Keeper's Lantern 1.0.12 active.
+
+User acceptance on 2026-09-21 confirmed:
+- daytime ring brightness is good;
+- during the darker Keeper's Lantern night the ring is no longer excessively bright;
+- ring centering is correct;
+- the candidate is approved for stable promotion.
+
+The fishing lifecycle, timer ownership, missed-hook re-arm path and gameplay isolation are unchanged from the previously accepted implementation.
+
+Accepted build identity:
+- clean Release run: `35623960905`;
+- Actions artifact: `10651360220`;
+- frozen candidate ref: `candidate/1.0.3`;
+- installed DLL: `BiteCountdown.dll`;
+- plugin GUID: `nikich.bitecountdown`;
+- SHA-256: `77be2d8e0a03197df8e9b82ffb4b6f8971c137f585f44fba50cafd47dc575f02`.
