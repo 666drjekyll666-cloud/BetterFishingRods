@@ -1,0 +1,75 @@
+name: Build Bite Countdown anchor audit probe
+
+on:
+  push:
+    branches:
+      - research/anchor-orientation-audit
+    paths:
+      - 'research/AnchorAuditProbe.cs'
+      - 'research/BiteCountdown.AnchorAuditProbe.csproj'
+      - 'nuget.config'
+      - '.github/workflows/build-anchor-audit-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bite-countdown-anchor-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Clean prior outputs
+        run: rm -rf research/bin research/obj artifacts
+
+      - name: Restore
+        run: dotnet restore research/BiteCountdown.AnchorAuditProbe.csproj --configfile nuget.config
+
+      - name: Build Release anchor audit probe
+        run: dotnet build research/BiteCountdown.AnchorAuditProbe.csproj -c Release --no-restore --nologo
+
+      - name: Stage immutable research artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          dll='research/bin/AnchorAuditProbe/BiteCountdownAnchorAuditProbe.dll'
+          test -f "$dll"
+
+          mkdir -p artifacts
+          handoff='Bite Countdown Anchor Audit Probe 0.3.0.dll'
+          cp "$dll" "artifacts/$handoff"
+
+          sha256=$(sha256sum "artifacts/$handoff" | awk '{print $1}')
+          {
+            echo 'Artifact: Bite Countdown Anchor Audit Probe 0.3.0'
+            echo 'Plugin GUID: nikich.bitecountdown.anchorauditprobe'
+            echo "Source SHA: $GITHUB_SHA"
+            echo "SHA-256: $sha256"
+            echo 'Purpose: compare production bobber anchor inputs across fishing spots and facing directions'
+            echo 'Gameplay changes: none'
+            echo 'Save writes: none'
+          } > artifacts/BUILD_INFO.txt
+
+          echo "Anchor audit probe SHA-256: $sha256"
+
+      - name: Upload anchor audit probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: BiteCountdown-AnchorAuditProbe-0.3.0-${{ github.sha }}
+          path: |
+            artifacts/Bite Countdown Anchor Audit Probe 0.3.0.dll
+            artifacts/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 7
