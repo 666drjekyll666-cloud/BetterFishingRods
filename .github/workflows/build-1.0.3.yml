@@ -65,7 +65,7 @@ jobs:
             echo "Source SHA: $GITHUB_SHA"
             echo "SHA-256: $sha256"
             echo 'Target: Graveyard Keeper 1.407'
-            echo 'Scope: visual countdown only; left-facing anchor correction'
+            echo 'Scope: visual countdown only; left-facing alignment and ambient-aware ring brightness'
           } > artifacts/BUILD_INFO.txt
 
           echo "BiteCountdown.dll SHA-256: $sha256"
