@@ -509,11 +509,13 @@ namespace BiteCountdownAnchorAuditResearch
         private static string Quote(string value)
         {
             if (value == null)
-                return ""<null>"";
+                return "<null>";
 
-            return """
-                + value.Replace("\\", "\\\\").Replace(""", "\\"")
-                + """;
+            return value
+                .Replace(' ', '_')
+                .Replace('\t', '_')
+                .Replace('\r', '_')
+                .Replace('\n', '_');
         }
 
         private static string FormatMethod(MethodBase method)
