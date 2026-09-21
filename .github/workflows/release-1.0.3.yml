@@ -18,10 +18,20 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      ACCEPTED_SOURCE_SHA: 2b5c3cfec638098328eaf5707d0e79effb9a1bf6
 
     steps:
-      - name: Checkout release metadata
+      - name: Checkout stable source and release metadata
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify stable runtime matches accepted candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code "$ACCEPTED_SOURCE_SHA" "$GITHUB_SHA" -- src/Plugin.cs BiteCountdown.csproj
 
       - name: Verify exact accepted candidate artifact
         env:
@@ -31,7 +41,7 @@ jobs:
           set -euo pipefail
 
           artifact_json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100")
-          artifact_id=$(printf '%s' "$artifact_json" | jq -r --arg sha "$GITHUB_SHA" '
+          artifact_id=$(printf '%s' "$artifact_json" | jq -r --arg sha "$ACCEPTED_SOURCE_SHA" '
             .artifacts[]
             | select(.workflow_run.head_sha == $sha)
             | select(.name | startswith("BiteCountdown-1.0.3-"))
@@ -39,7 +49,7 @@ jobs:
           ' | head -n 1)
 
           if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
-            echo "No Bite Countdown 1.0.3 candidate artifact found for source $GITHUB_SHA" >&2
+            echo "No Bite Countdown 1.0.3 candidate artifact found for accepted source $ACCEPTED_SOURCE_SHA" >&2
             exit 1
           fi
 
@@ -54,8 +64,9 @@ jobs:
           recorded_hash=$(sed -n 's/^SHA-256: //p' release/BUILD_INFO.txt)
           actual_hash=$(sha256sum release/BiteCountdown.dll | awk '{print $1}')
 
-          test "$recorded_source" = "$GITHUB_SHA"
+          test "$recorded_source" = "$ACCEPTED_SOURCE_SHA"
           test "$recorded_hash" = "$actual_hash"
+          test "$actual_hash" = "77be2d8e0a03197df8e9b82ffb4b6f8971c137f585f44fba50cafd47dc575f02"
 
           printf '%s  %s\n' "$actual_hash" "BiteCountdown.dll" > release/SHA256SUMS.txt
 
@@ -74,6 +85,6 @@ jobs:
           gh release create v1.0.3 \
             release/BiteCountdown.dll \
             release/SHA256SUMS.txt \
-            --target "$GITHUB_SHA" \
+            --target "$ACCEPTED_SOURCE_SHA" \
             --title "Bite Countdown 1.0.3" \
             --notes-file RELEASE_NOTES.md
