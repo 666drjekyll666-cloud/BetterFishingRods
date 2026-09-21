@@ -39,7 +39,7 @@ Follow the global host-native-first gate.
 - Initial countdown starts after verified `FishingThrowingAnim.OnStateExit` enables `can_take_out`.
 - After a missed hook, vanilla can return directly to `WaitingForBite`; re-arm only when the resulting state is `WaitingForBite` and `can_take_out == true`.
 - The visual coroutine reads the native timer. It never writes or replaces the gameplay timer.
-- Anchor to the current bobber sprite tight mesh and apply accepted visual offset X=+2, Y=-2 game pixels.
+- Anchor to the current bobber sprite tight mesh and apply the residual correction in bobber-sprite local pixels so native left/right mirroring also mirrors that correction.
 - No permanent Harmony `Update()` patch, broad polling, or parallel fishing state machine.
 - Unsupported runtime states fail closed by disabling only the countdown.
 
@@ -49,7 +49,7 @@ Follow the global host-native-first gate.
 - end scale: `0.08`;
 - alpha at full wait: `0.34`;
 - alpha near bite: `0.58`;
-- visual offset: `X=+2, Y=-2` game pixels.
+- sprite-local visual correction: `X=-2, Y=-2` game pixels. This preserves the accepted right-facing placement and mirrors the horizontal correction for left-facing fishing.
 
 ## Diagnostics
 
