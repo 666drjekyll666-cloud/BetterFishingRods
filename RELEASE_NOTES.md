@@ -1,10 +1,10 @@
-# Bite Countdown 1.0.1
+# Bite Countdown 1.0.2
 
-Adds a subtle shrinking ring around the bobber so you can see when the next bite is coming.
+Fixes the countdown ring's horizontal alignment when fishing to the left.
 
-- Follows the game's real fish-wait timer.
-- Reaches the bobber at the native bite moment.
-- Re-arms correctly after a missed hook.
+- Keeps the already-correct right-facing placement unchanged.
+- Mirrors the small sprite-local bobber correction with the game's native fishing direction.
+- Follows the game's real fish-wait timer and still re-arms after a missed hook.
 - Does not change fishing balance, catches, bait, energy, rarity, or the reeling minigame.
 - Stores no custom save data.
 
