@@ -17,6 +17,17 @@ Before substantive technical work, read the current `ENGINEERING_RULES.md`, `CI_
 
 Do not reintroduce the earlier rod-balance product concept into runtime or release naming.
 
+## Shared Graveyard Keeper research
+
+Reusable Graveyard Keeper 1.407 host/runtime facts are shared through `NikichMods/GraveyardKeeperResearch`.
+
+Before starting fresh host-internals research, check:
+- `NikichMods/GraveyardKeeperResearch/docs/RESEARCH_INDEX.md`;
+- the relevant canonical shared document, especially `docs/FISHING_RUNTIME.md` for fishing lifecycle/geometry questions;
+- accepted local project evidence/history if the fact is Bite Countdown-specific.
+
+Keep cross-project host/runtime facts in the shared research repository. Keep Bite Countdown product behavior, visual decisions, acceptance state, build identity, and release evidence in this repository.
+
 ## Product scope
 
 Bite Countdown is a visual-only fishing quality-of-life mod.
