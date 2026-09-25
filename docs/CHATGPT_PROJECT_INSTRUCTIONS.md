@@ -54,6 +54,8 @@ Ask the user only for:
 
 Prefer narrow automated probes/harnesses when they reduce repetitive, timing-sensitive, arithmetic, RNG, transcription, or fragile manual testing. For visual calibration, use bounded live controls only after the native anchor/coordinate model is understood.
 
+Do not automate merely to eliminate a cheap user action. Before creating new research code, state the exact question, whether accepted evidence/direct inspection/an existing exact artifact/a short direct runtime action can answer it, and why the probe is simpler or more reliable if those paths are insufficient. Prefer fewer assumptions and moving parts over fewer clicks, DLL swaps, or restarts.
+
 ## New chats
 
 No special first-message handoff is required inside this ChatGPT Project.
