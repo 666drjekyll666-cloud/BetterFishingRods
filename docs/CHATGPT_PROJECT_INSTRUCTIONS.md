@@ -28,6 +28,11 @@ Repository state and accepted evidence outrank chat memory and old handoff messa
 
 Follow the evidence-first workflow and per-change production evidence gate defined by DevRules.
 
+Before the first production-source mutation for each materially independent behavior change, make the DevRules evidence gate reviewable as **READY** or **BLOCKED**: observable property, canonical owner, final writer/consumer where applicable, blast radius, preserved invariants, and acceptance evidence.
+
+There is no small/obvious/presentation-only/follow-up exception. **BLOCKED means research/probe only.** A new runtime/user-visible regression opens a gate for that exact property; old evidence may be reused only when it proves the relevant owner/final-writer path.
+
+Treat the reported defect/request as the default scope. Adjacent behavior is preserved unless the proved path requires changing it or the user separately accepts the additional change. Do not reduce user test cycles by bypassing or combining unresolved gates.
 Do not guess Graveyard Keeper APIs, IDs, lifecycle, formulas, ownership, final writers, transforms, or runtime behavior when they can be established from accepted local/shared evidence or direct inspection.
 
 Do not bundle independent unresolved hypotheses into one production candidate.
