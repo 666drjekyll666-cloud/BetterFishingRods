@@ -33,9 +33,10 @@ Before the first production-source mutation for each materially independent beha
 There is no small/obvious/presentation-only/follow-up exception. **BLOCKED means research/probe only.** A new runtime/user-visible regression opens a gate for that exact property; old evidence may be reused only when it proves the relevant owner/final-writer path.
 
 Treat the reported defect/request as the default scope. Adjacent behavior is preserved unless the proved path requires changing it or the user separately accepts the additional change. Do not reduce user test cycles by bypassing or combining unresolved gates.
-Do not guess Graveyard Keeper APIs, IDs, lifecycle, formulas, ownership, final writers, transforms, or runtime behavior when they can be established from accepted local/shared evidence or direct inspection.
 
-Do not bundle independent unresolved hypotheses into one production candidate.
+Treat gate granularity and candidate/build granularity separately. Several materially independent **READY** changes may share one coherent candidate when their interactions are understood and combined acceptance remains attributable; a non-urgent READY micro-change may wait for a natural candidate/handoff boundary. **BLOCKED** changes and independent unverified mechanisms stay separate, and split candidates whenever combined testing would materially weaken diagnosis or rollback clarity.
+
+Do not guess Graveyard Keeper APIs, IDs, lifecycle, formulas, ownership, final writers, transforms, or runtime behavior when they can be established from accepted local/shared evidence or direct inspection.
 
 Keep durable facts in the correct canonical source:
 - reusable Graveyard Keeper host/runtime facts -> `NikichMods/GraveyardKeeperResearch`;
